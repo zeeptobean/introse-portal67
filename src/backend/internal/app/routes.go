@@ -72,6 +72,7 @@ func NewHandler(pool *pgxpool.Pool) http.Handler {
 
 	mux.Handle("POST /api/document-requests", requireRole(auth.RoleStudent, documentHandler.Submit))
 	mux.Handle("GET /api/document-requests", authHandler.RequireLogin(http.HandlerFunc(documentHandler.List)))
+	mux.Handle("GET /api/document-requests/{id}", authHandler.RequireLogin(http.HandlerFunc(documentHandler.Get)))
 	mux.Handle("PATCH /api/document-requests/{id}", requireRole(auth.RoleStaff, documentHandler.Decide))
 
 	return sessions.LoadAndSave(mux)
