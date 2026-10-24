@@ -54,12 +54,16 @@ func NewHandler(pool *pgxpool.Pool) http.Handler {
 	mux.Handle("POST /api/auth/logout", authHandler.RequireLogin(http.HandlerFunc(authHandler.Logout)))
 	mux.Handle("GET /api/me", authHandler.RequireLogin(http.HandlerFunc(authHandler.Me)))
 
+	mux.Handle("GET /api/terms", authHandler.RequireLogin(http.HandlerFunc(academicHandler.ListTerms)))
 	mux.Handle("GET /api/sections", authHandler.RequireLogin(http.HandlerFunc(academicHandler.ListSections)))
 	mux.Handle("POST /api/enrollments", requireRole(auth.RoleStudent, academicHandler.Register))
 	mux.Handle("DELETE /api/enrollments/{id}", requireRole(auth.RoleStudent, academicHandler.Cancel))
+	mux.Handle("GET /api/me/enrollments", requireRole(auth.RoleStudent, academicHandler.Enrollments))
 	mux.Handle("GET /api/me/timetable", requireRole(auth.RoleStudent, academicHandler.Timetable))
 	mux.Handle("GET /api/me/exams", requireRole(auth.RoleStudent, academicHandler.Exams))
 	mux.Handle("GET /api/me/results", requireRole(auth.RoleStudent, academicHandler.Results))
+	mux.Handle("GET /api/lecturer/sections", requireRole(auth.RoleLecturer, academicHandler.LecturerSections))
+	mux.Handle("GET /api/sections/{id}/grades", requireRole(auth.RoleLecturer, academicHandler.Roster))
 	mux.Handle("PUT /api/sections/{id}/grades", requireRole(auth.RoleLecturer, academicHandler.SaveGrades))
 
 	mux.Handle("GET /api/me/tuition", requireRole(auth.RoleStudent, tuitionHandler.Summary))
