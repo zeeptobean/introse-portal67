@@ -37,11 +37,6 @@ func Error(w http.ResponseWriter, status int, message string) {
 	WriteJSON(w, status, map[string]string{"error": message})
 }
 
-// NotImplemented marks scaffold endpoints that have no feature logic yet.
-func NotImplemented(w http.ResponseWriter) {
-	Error(w, http.StatusNotImplemented, "not_implemented")
-}
-
 func NotLoggedIn(w http.ResponseWriter) {
 	Error(w, http.StatusUnauthorized, "not logged in")
 }

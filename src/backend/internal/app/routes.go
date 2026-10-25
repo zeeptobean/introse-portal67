@@ -67,6 +67,9 @@ func NewHandler(pool *pgxpool.Pool) http.Handler {
 	mux.Handle("PUT /api/sections/{id}/grades", requireRole(auth.RoleLecturer, academicHandler.SaveGrades))
 
 	mux.Handle("GET /api/me/tuition", requireRole(auth.RoleStudent, tuitionHandler.Summary))
+	mux.Handle("GET /api/staff/students", requireRole(auth.RoleStaff, authHandler.ListStudents))
+	mux.Handle("GET /api/staff/students/{id}/tuition", requireRole(auth.RoleStaff, tuitionHandler.StudentSummary))
+	mux.Handle("POST /api/staff/charges", requireRole(auth.RoleStaff, tuitionHandler.AddCharge))
 	mux.Handle("POST /api/staff/payments", requireRole(auth.RoleStaff, tuitionHandler.RecordPayment))
 	mux.Handle("PATCH /api/staff/payments/{id}", requireRole(auth.RoleStaff, tuitionHandler.UpdatePayment))
 

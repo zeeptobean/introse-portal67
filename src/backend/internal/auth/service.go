@@ -60,3 +60,8 @@ func (s *Service) UserByID(ctx context.Context, id int64) (User, error) {
 	}
 	return u, err
 }
+
+// Students searches students by email, name, or institutional ID.
+func (s *Service) Students(ctx context.Context, query string) ([]User, error) {
+	return s.store.listStudents(ctx, strings.TrimSpace(query))
+}

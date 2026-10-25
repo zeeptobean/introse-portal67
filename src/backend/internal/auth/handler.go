@@ -80,3 +80,14 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusOK, u)
 }
+
+// ListStudents lets staff look up students by the optional q query parameter.
+func (h *Handler) ListStudents(w http.ResponseWriter, r *http.Request) {
+	users, err := h.service.Students(r.Context(), r.URL.Query().Get("q"))
+	if err != nil {
+		slog.ErrorContext(r.Context(), "list students", "error", err)
+		httpx.InternalError(w)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, users)
+}
