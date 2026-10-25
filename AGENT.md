@@ -19,13 +19,13 @@ This document serves as the authoritative source of truth for AI Agents (Copilot
 
 ### Team Roster & Role Assignments
 
-| Student ID | Full Name | Academic Email | Primary Role | Secondary (Backup) Role |
-| :--- | :--- | :--- | :--- | :--- |
-| **24127326** | **Đoàn Quốc Bảo** | `dqbao2432@clc.fitus.edu.vn` | **Team Lead / Project Manager** | Developer |
-| **24127025** | **Lê Minh Đức** | `lmduc2433@clc.fitus.edu.vn` | **Business Analyst (BA)** | UI/UX Designer |
-| **24127003** | **Vũ Trần Minh Hiếu** | `vtmhieu2416@clc.fitus.edu.vn` | **System Architect / UI Designer** | Developer |
-| **24127173** | **Nguyễn Tuấn Hùng** | `nthung2432@clc.fitus.edu.vn` | **Lead Developer** | QA / Tester |
-| **24127008** | **Trương Nhật Phát** | `tnphat2418@clc.fitus.edu.vn` | **QA / Tester** | PM / Business Analyst |
+| Student ID | Full Name | Primary Role | Secondary (Backup) Role |
+| :--- | :--- | :--- | :--- |
+| **24127326** | **Đoàn Quốc Bảo** | **Team Lead / Project Manager** | Developer |
+| **24127025** | **Lê Minh Đức** | **Business Analyst (BA)** | UI/UX Designer |
+| **24127003** | **Vũ Trần Minh Hiếu** | **System Architect / UI Designer** | Developer |
+| **24127173** | **Nguyễn Tuấn Hùng** | **Lead Developer** | QA / Tester |
+| **24127008** | **Trương Nhật Phát** | **QA / Tester** | PM / Business Analyst |
 
 ---
 
@@ -228,19 +228,9 @@ All commit messages must strictly adhere to the guidelines set in `.github/copil
 * Provide an `.env.example` template with dummy placeholder values for team setup.
 
 ### 7.4. AI Usage Transparency & Logging
-* **Faculty Policy Compliance:** As required by HCMUS faculty policy, all AI-generated or AI-assisted contributions (code generation, refactoring, architectural diagrams, requirement specifications, test suites) must be logged in [`docs/ai-usage/`](docs/ai-usage/).
-* **Cadence & Individual Accountability:**
-  * **Frequency:** Exactly **1 log entry per week per member** (e.g., `W02.md`, `W03.md`).
-  * **Dedicated Folders:** Each member manages their logs in their designated folder under `docs/ai-usage/<MSSV>-<username>/` (e.g., `docs/ai-usage/24127003-vtmhieu/`).
-  * **Deadline:** Synchronized with the Weekly Status Report — **Every Wednesday at 23:59**.
-* **Mandatory Entry Structure:** Each log must capture:
-  1. Tool used (ChatGPT, Claude, Copilot, Cursor, Antigravity, Gemini).
-  2. Purpose and input prompt.
-  3. AI output summary.
-  4. **Human Review & Modifications (Critical Grading Metric):** Exactly what AI got wrong or missed, and what the human verified, corrected, or optimized for Portal67.
-  5. Verification steps (unit tests, linter, peer-review) and commit/PR traceability links.
-  6. Self-reflection on time saved and lessons learned.
-* **Master Templates & Agent Directives:** Refer to [`docs/ai-usage/README.md`](docs/ai-usage/README.md) for workflow details, [`docs/ai-usage/TEMPLATE.md`](docs/ai-usage/TEMPLATE.md) for the master template, and [`docs/ai-usage/AGENT.md`](docs/ai-usage/AGENT.md) for specialized AI agent protocols.
+* As required by HCMUS faculty policy, all AI-generated or AI-assisted contributions (code generation, refactoring, architectural documentation, test suites) must be logged in [`docs/ai-usage/`](docs/ai-usage/).
+* Each team member maintains their own logs when utilizing AI tools. Refer to [`docs/ai-usage/TEMPLATE.md`](docs/ai-usage/TEMPLATE.md) for the recommended entry format.
+* Log entries must specify: tool used, purpose/prompt, scope of code/docs produced, and human review/verification steps.
 
 ### 7.5. Communication & Weekly Status Cadence
 * Team communications occur primarily via Discord (and Messenger). Team members are expected to respond within 24 hours on weekdays.
@@ -283,7 +273,6 @@ When acting as an AI assistant within this repository:
 * Before declaring any implementation complete, verify and test the code.
 * Always preserve existing comments and documentation integrity.
 
-### 8.4. Mandatory AI Usage Logging Assistance
-* When completing significant architectural, requirement, coding, or testing tasks, the AI Agent must proactively provide or format a pre-filled **AI Usage Log snippet** tailored to the active member's folder under `docs/ai-usage/<MSSV>-<username>/`.
-* Flag all assumptions, potential edge cases, and areas requiring human validation (e.g., concurrency, HCMUS academic constraints, mock vs. real data boundaries) so the student can complete their "Human Review & Modifications" section effectively.
-* Strictly consult [`docs/ai-usage/AGENT.md`](docs/ai-usage/AGENT.md) for detailed agent logging workflows.
+### 8.4. AI Usage Logging Assistance
+* When completing significant architectural, requirement, coding, or testing tasks, the AI Agent should provide a concise log snippet matching the format in [`docs/ai-usage/TEMPLATE.md`](docs/ai-usage/TEMPLATE.md) to help the developer log their session.
+* Flag all assumptions, potential edge cases, and areas requiring human validation (e.g., concurrency, HCMUS academic constraints, mock vs. real data boundaries) so the developer can complete their verification effectively.

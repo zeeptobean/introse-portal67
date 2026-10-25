@@ -1,27 +1,33 @@
-# TÀI LIỆU THIẾT KẾ KIẾN TRÚC & ĐẶC TẢ PHÂN HỆ HỆ THỐNG PORTAL67
-**Dự án:** Portal67 - Cổng thông tin Học vụ & Hành chính Tích hợp HCMUS  
-**Môn học:** Nhập môn Công nghệ Phần mềm (Intro to SE) - HK1, 2026–2027  
-**Nhóm thực hiện:** Nhóm 02 (BDD)  
-**Tác giả (System Architect):** Vũ Trần Minh Hiếu (24127003)  
-**Ngày cập nhật:** 25/10/2026  
-**Phiên bản:** 1.0 (Phục vụ PA2 - Requirements & PA3 - System Design)
+# System Architecture & Functional Specification Document - Portal67
+
+**Project:** Portal67 - Unified Academic & Administrative Web Portal  
+**Course:** Introduction to Software Engineering - Semester 1 (HK1), 2026–2027  
+**Department:** Software Engineering Department, Faculty of Information Technology, HCMUS  
+**Team:** Team 02 - BDD  
+**Author (System Architect):** Vũ Trần Minh Hiếu (Student ID: 24127003)  
+**Version:** 1.1 (Revised for PA2 Requirements & PA3 System Design)  
+**Status:** Approved for Review  
 
 ---
 
-## 1. TỔNG QUAN HỆ THỐNG (SYSTEM OVERVIEW)
+## 1. System Overview & Problem Statement
 
-### 1.1. Bối cảnh & Vấn đề giải quyết
-Hiện nay tại Trường Đại học Khoa học Tự nhiên (HCMUS), sinh viên và giảng viên thường phải phân mảnh trải nghiệm trên nhiều hệ thống khác nhau:
-- Phân cách giữa hệ thống dành cho hệ **Đại trà** và hệ **Chất lượng cao (CLC)**.
-- Đăng ký học phần, tra cứu thời khóa biểu, nộp học phí, xin giấy xác nhận sinh viên và phúc khảo điểm phân tán trên nhiều website, biểu mẫu Google Form và công cụ không chính thức.
+### 1.1. Context & Background
+Currently, students, faculty, and administrative staff at the University of Science, VNU-HCM (HCMUS) navigate across disconnected platforms and manual procedures:
+* Academic portals and course catalogs are fragmented between the **Standard Program (Đại trà)** and the **High-Quality Program (Chất lượng cao - CLC)**.
+* High peak-load traffic during course registration periods causes performance bottlenecks.
+* Essential student workflows (e.g., student verification requests, military deferment certificates, tuition tracking, grade reviews, and GPA forecasting) are scattered across third-party forms (Google Forms) and separate websites.
 
-**Portal67** được xây dựng nhằm mục tiêu hợp nhất các dịch vụ học vụ, hành chính và thi cử trên một nền tảng web hiện đại, có phân quyền chặt chẽ, tối ưu hóa trải nghiệm người dùng và áp dụng kiến trúc **Microservices tinh gọn (Pragmatic Microservices)** vận hành cục bộ thông qua Docker Compose.
+### 1.2. Solution Vision
+**Portal67** provides a unified, responsive, and high-performance portal that integrates academic scheduling, course registration, grading, financial tracking, and administrative document workflows.
+
+The system is designed with a **Pragmatic Microservices Architecture**, optimized for local containerized deployment via **Docker Compose** without the operational overhead of Kubernetes or distributed service meshes, fitting the semester timeline and team velocity.
 
 ---
 
-## 2. PHÂN HỆ NGƯỜI DÙNG & MA TRẬN CHỨC NĂNG (RBAC & FUNCTIONAL BREAKDOWN)
+## 2. User Roles & Functional Decomposition Matrix (RBAC)
 
-Hệ thống phục vụ 3 nhóm đối tượng chính với các chức năng chi tiết được phân rã như sau:
+The system enforces strict Role-Based Access Control (RBAC) across three primary user groups:
 
 ```
                             ┌──────────────────────────────────────┐
@@ -30,97 +36,98 @@ Hệ thống phục vụ 3 nhóm đối tượng chính với các chức năng 
                ┌───────────────────────────────┼───────────────────────────────┐
                ▼                               ▼                               ▼
     ┌─────────────────────┐         ┌─────────────────────┐         ┌─────────────────────┐
-    │      SINH VIÊN      │         │      GIÁO VIÊN      │         │       GIÁO VỤ       │
-    │  (Đại trà & CLC)    │         │     (Lecturer)      │         │   (Academic Staff)  │
+    │       STUDENT       │         │       TEACHER       │         │   ACADEMIC STAFF    │
+    │  (Standard & CLC)   │         │     (Lecturer)      │         │       (Admin)       │
     └─────────────────────┘         └─────────────────────┘         └─────────────────────┘
 ```
 
 ---
 
-### 2.1. Phân hệ SINH VIÊN (Student Portal)
-Áp dụng cho 2 đối tượng đào tạo:
-* **Sinh viên Đại trà (Standard Program)**
-* **Sinh viên Chất lượng cao (High Quality - CLC Program)**: Có quy chế đăng ký học phần riêng, mức tính học phí đặc thù và các lớp kỹ năng/tiếng Anh tăng cường.
+### 2.1. Student Subsystem (Student Portal)
 
-| Nhóm chức năng | Tên tính năng chi tiết | Mô tả nghiệp vụ | Mức độ ưu tiên (MoSCoW) |
+Supports two distinct academic tracks:
+* **Standard Track (Chương trình Đại trà)**
+* **High-Quality Track (Chương trình Chất lượng cao - CLC)**: Differentiated credit tuition rates, specialized elective modules, and English-enhanced coursework.
+
+| Category | Feature Name | Business Description | MoSCoW Priority |
 | :--- | :--- | :--- | :--- |
-| **1. Tổng quan** | **Trang chủ (Dashboard)** | Xem thông báo quan trọng từ nhà trường/khoa, lịch học/lịch thi trong ngày, nhắc nhở hạn đóng học phí và các công việc cần làm (to-do list). | **Must-have** |
-| | **Hồ sơ cá nhân (Profile)** | Xem/chỉnh sửa thông tin liên lạc cá nhân, thông tin lý lịch, cố vấn học tập, lớp sinh hoạt, niên khóa và chương trình đào tạo (Đại trà / CLC). | **Must-have** |
-| **2. Học vụ** | **Đăng ký học phần (ĐKHP)** | Tìm kiếm, xem danh sách môn học & lớp học phần mở (phân theo Đại trà/CLC), kiểm tra sĩ số thời gian thực, kiểm tra trùng lịch tự động, gửi đăng ký / hủy môn. | **Must-have** |
-| | **Thời khóa biểu (TKB)** | Hiển thị lịch học tuần/tháng dạng lưới trực quan, chi tiết phòng học, ca học, giảng viên phụ trách, hỗ trợ lọc theo học kỳ. | **Must-have** |
-| | **Bảng điểm & Dự báo GPA** | Tra cứu điểm theo từng học kỳ (thang 10 & thang 4), tính GPA học kỳ và CPA tích lũy. Công cụ giả định điểm để dự báo GPA tốt nghiệp. | **Must-have** |
-| | **Điểm rèn luyện (ĐRL)** | Xem lịch sử ĐRL các kỳ, bảng tự chấm điểm rèn luyện trực tuyến theo khung tiêu chí của trường và theo dõi trạng thái phê duyệt. | **Should-have** |
-| | **Lịch thi** | Hiển thị danh sách ca thi, ngày thi, giờ thi, số báo danh, phòng thi và hình thức thi (tự luận, trắc nghiệm, vấn đáp). Cảnh báo trùng lịch thi. | **Must-have** |
-| | **Phiếu khảo sát** | Làm khảo sát đánh giá môn học và giảng viên cuối mỗi học kỳ (điều kiện để mở khóa xem điểm sớm). | **Could-have** |
-| **3. Thi cử** | **Đăng ký hoãn / thi lại** | Nộp đơn trực tuyến xin hoãn thi (đính kèm minh chứng bệnh/lý do chính đáng) hoặc đăng ký thi lại/cải thiện điểm. | **Should-have** |
-| | **Phúc khảo điểm** | Nộp đơn yêu cầu chấm phúc khảo cho môn học cụ thể trong thời hạn quy định; theo dõi quy trình xử lý và cập nhật điểm sau phúc khảo. | **Must-have** |
-| **4. Giấy tờ** | **Giấy xác nhận sinh viên** | Đăng ký cấp giấy xác nhận trực tuyến (tạm hoãn Nghĩa vụ quân sự - NVQS, vay vốn ngân hàng, xin việc làm, bảo hiểm y tế). | **Must-have** |
-| | **Đăng ký cấp bảng điểm** | Yêu cầu in bảng điểm song ngữ, bảng điểm có mộc hoặc cấp file PDF có chữ ký số xác thực. | **Should-have** |
-| | **Xác nhận chứng chỉ** | Nộp hồ sơ xét chuẩn đầu ra ngoại ngữ (IELTS, TOEIC...) và tin học (MOS); tra cứu kết quả thẩm định từ giáo vụ. | **Should-have** |
-| **5. Tài chính** | **Tra cứu học phí** | Xem chi tiết học phí từng môn, tổng học phí học kỳ, hạn nộp, các khoản giảm trừ (miễn giảm diện chính sách). Phân biệt đơn giá tín chỉ Đại trà vs CLC. | **Must-have** |
-| | **Gia hạn học phí** | Nộp đơn xin gia hạn thời hạn đóng học phí kèm lý do, theo dõi kết quả xét duyệt từ phòng công tác sinh viên. | **Should-have** |
-| | **Học bổng** | Tra cứu danh sách học bổng khuyến khích học tập (KKHT) và học bổng doanh nghiệp; nộp hồ sơ đăng ký xét tuyển học bổng. | **Could-have** |
-| **6. Thư viện** | **Tra cứu & Tài khoản Thư viện** | Tra cứu danh mục giáo trình, liên kết hệ thống thư viện trung tâm, theo dõi hạn trả sách đang mượn. | **Could-have** *(Deferred)* |
+| **1. Overview** | **Dashboard** | Displays announcements, daily class/exam agenda, pending tuition deadlines, and prioritized actionable to-dos. | **Must-have** |
+| | **Student Profile** | Displays biographical records, contact details, academic advisor, home class, cohort, and academic program track (Standard vs. CLC). | **Must-have** |
+| **2. Academic Affairs** | **Course Registration (ĐKHP)** | Browse open course sections (filtered by Standard / CLC tracks), view live seat availability, validate prerequisites, automatically detect timetable conflicts, and perform add/drop operations. | **Must-have** |
+| | **Weekly Timetable** | Grid-based visual calendar of weekly class schedules with classroom locations, period slots, instructor information, and semester filtering. | **Must-have** |
+| | **Grades & GPA Forecaster** | Comprehensive view of semester and cumulative grades (10-point and 4-point scales, GPA/CPA). What-if GPA calculator for graduation planning. | **Must-have** |
+| | **Training Points (ĐRL)** | View training point history, complete online self-assessment per semester criteria, and track staff approval status. | **Should-have** |
+| | **Exam Schedule** | List of scheduled exam slots, dates, shifts, candidate numbers (SBD), room allocations, and exam formats (written, multiple-choice, oral). Conflict detection included. | **Must-have** |
+| | **Course Survey** | End-of-semester faculty and course evaluation forms (prerequisite for early grade viewing). | **Could-have** |
+| **3. Examinations** | **Postponement & Retake** | Online submission of exam postponement requests (with medical/emergency attachments) and retake registration. | **Should-have** |
+| | **Grade Appeal (Phúc khảo)** | Submit grade appeal requests for designated course components within the official review window; track review audit trail and updated scores. | **Must-have** |
+| **4. Documents** | **Student Verification** | Request official verification certificates online (Military Service Deferment / NVQS, bank loan applications, visa, health insurance). | **Must-have** |
+| | **Transcript Issuance** | Request certified paper transcripts or cryptographically verifiable PDF transcripts. | **Should-have** |
+| | **Certificate Submission** | Submit foreign language (IELTS, TOEIC) and IT exit certifications for graduation requirement verification. | **Should-have** |
+| **5. Finance** | **Tuition Management** | Itemized invoice breakdown per course section, total semester balance, payment deadlines, and policy-based waivers. Credit rate differentiated by Standard vs. CLC tracks. | **Must-have** |
+| | **Tuition Deferment** | Submit tuition payment extension requests with supporting reasons and monitor approval status. | **Should-have** |
+| | **Scholarships** | View academic excellence and corporate scholarship listings; submit application dossiers online. | **Could-have** |
+| **6. Library** | **Library Services** | Search central library catalog, view book reservation status, and monitor return deadlines. | **Could-have** *(Deferred)* |
 
 ---
 
-### 2.2. Phân hệ GIÁO VIÊN (Lecturer Portal)
+### 2.2. Lecturer Subsystem (Teacher Portal)
 
-| Chức năng | Mô tả nghiệp vụ | Mức độ ưu tiên |
+| Feature | Business Description | MoSCoW Priority |
 | :--- | :--- | :--- |
-| **1. Trang chủ** | Tổng hợp lịch giảng dạy trong ngày/tuần, các mốc thời gian quan trọng (hạn nộp bảng điểm, lịch thi), danh sách việc cần xử lý. | **Must-have** |
-| **2. Quản lý lớp học & Học sinh** | Xem danh sách các lớp học phần được phân công; tra cứu danh sách sinh viên theo lớp, xuất danh sách điểm danh, gửi thông báo nhanh đến sinh viên trong lớp. | **Must-have** |
-| **3. Thời khóa biểu giảng dạy** | Xem lịch dạy hàng tuần, thông tin phòng học, ca học; đăng ký yêu cầu dạy bù / đổi phòng học khi có sự cố. | **Must-have** |
-| **4. Theo dõi kết quả học tập** | Nhập và chỉnh sửa điểm thành phần (chuyên cần, giữa kỳ, thực hành, đồ án, thi cuối kỳ); hỗ trợ import điểm từ file Excel; tự động tính điểm tổng kết theo trọng số. | **Must-have** |
-| **5. Báo cáo giảng dạy** | Khóa sổ điểm học phần và ký số nộp bảng điểm về giáo vụ; xem biểu đồ phổ điểm phân phối (thống kê tỷ lệ A, B, C, F) của lớp học phần. | **Should-have** |
+| **1. Dashboard** | Summary of daily teaching schedules, upcoming grade submission deadlines, and pending administrative tasks. | **Must-have** |
+| **2. Class & Student Management** | View assigned course sections, inspect student rosters, export attendance sheets, and broadcast announcements to enrolled students. | **Must-have** |
+| **3. Teaching Timetable** | Weekly schedule view with room and period assignments; submit room-change or makeup-class requests. | **Must-have** |
+| **4. Grade Entry & Monitoring** | Enter and modify continuous assessment scores (attendance, midterm, lab, project, final); import grades via Excel spreadsheets; automated weighted average computation. | **Must-have** |
+| **5. Teaching Reports** | Lock grade books, sign and submit final score sheets to academic affairs, and inspect class score distribution analytics (histogram of letter grades). | **Should-have** |
 
 ---
 
-### 2.3. Phân hệ GIÁO VỤ (Academic Staff / Admin Portal)
+### 2.3. Academic Staff Subsystem (Admin / Educational Affairs Portal)
 
-| Chức năng | Mô tả nghiệp vụ | Mức độ ưu tiên |
+| Feature | Business Description | MoSCoW Priority |
 | :--- | :--- | :--- |
-| **1. Quản lý học sinh** | Quản lý toàn bộ hồ sơ sinh viên, phân loại theo chương trình (Đại trà vs CLC), xử lý trạng thái học vụ (đang học, bảo lưu, thôi học, chuyển lớp). | **Must-have** |
-| **2. Quản lý lớp học** | Quản lý lớp sinh hoạt và khởi tạo các lớp học phần cho từng học kỳ; cấu hình sĩ số tối đa, phòng học và thời khóa biểu dự kiến. | **Must-have** |
-| **3. Quản lý giáo viên** | Quản lý danh sách giảng viên, phân công giảng dạy cho các lớp học phần; quản lý định mức giờ dạy theo học kỳ. | **Must-have** |
-| **4. Quản lý môn học & CTĐT** | Cấu hình danh mục môn học, số tín chỉ, môn tiên quyết / học trước; quản lý khung chương trình đào tạo chuẩn cho hệ Đại trà và hệ CLC. | **Must-have** |
-| **5. Quản lý thời khóa biểu** | Xếp lịch học tự động/bán tự động; phát hiện xung đột phòng học và giảng viên; công bố thời khóa biểu chính thức trước đợt ĐKHP. | **Must-have** |
-| **6. Quản lý điểm & Kết quả** | Mở/khóa cổng nhập điểm của giảng viên; phê duyệt điểm chính thức; xét cảnh báo học vụ theo quy chế; xử lý đơn phúc khảo điểm của sinh viên. | **Must-have** |
-| **7. Quản lý lịch thi & Sự kiện** | Lập lịch thi kết thúc học phần, phân bổ phòng thi, tự động chia ca thi tránh trùng lịch cho sinh viên; chỉ định cán bộ coi thi. | **Must-have** |
-| **8. Quản lý thông báo** | Soạn thảo và gửi thông báo chung hoặc nhắm mục tiêu (toàn trường, riêng giảng viên, riêng sinh viên CLC, riêng sinh viên nợ học phí). | **Must-have** |
-| **9. Báo cáo & Thống kê** | Xuất báo cáo tổng hợp: tỷ lệ đăng ký học phần, tình trạng thu học phí, phổ điểm toàn khoa, thống kê sinh viên đạt học bổng/cảnh báo học vụ. | **Should-have** |
+| **1. Student Management** | Manage student profiles, track academic standing (active, suspended, expelled, transferred), and handle program assignments (Standard vs. CLC). | **Must-have** |
+| **2. Section Management** | Create administrative cohorts and semester course sections; configure maximum seating capacities, assigned faculty, and room slots. | **Must-have** |
+| **3. Faculty Management** | Manage faculty directory, assign teaching workloads per section, and monitor department quotas. | **Must-have** |
+| **4. Curriculum Management** | Maintain course catalog, credit allocations, and prerequisite dependency trees for Standard and CLC curriculum frameworks. | **Must-have** |
+| **5. Timetable Management** | Schedule generation with conflict detection for rooms and instructors; publish official timetables prior to registration periods. | **Must-have** |
+| **6. Grade & Academic Standing** | Open/close grade entry windows, validate finalized grades, process academic probation warnings, and adjudicate student grade appeals. | **Must-have** |
+| **7. Exam & Event Scheduling** | Final exam timetable generation, seat and room allocations, conflict elimination, and proctor assignments. | **Must-have** |
+| **8. Announcements** | Author and dispatch targeted or broadcast announcements (e.g., campus-wide, faculty-only, CLC students, tuition-overdue students). | **Must-have** |
+| **9. Reports & Analytics** | Generate executive reports: registration demand, tuition payment status, department-wide grade distributions, and probation/scholarship lists. | **Should-have** |
 
 ---
 
-## 3. THIẾT KẾ KIẾN TRÚC HỆ THỐNG (MICROSERVICES ARCHITECTURE)
+## 3. System Architecture Design (Pragmatic Microservices)
 
-Hệ thống tuân thủ mô hình **Microservices chạy cục bộ (Docker Compose)**, phân tách rõ ràng trách nhiệm nhưng tối giản hóa chi phí vận hành.
+The architecture adopts an isolated **Modular Microservices Pattern** managed by Docker Compose for reproducible local and demonstration environments.
 
 ```mermaid
 graph TB
     subgraph ClientApp ["Frontend Layer (Port 3000)"]
-        FE["SvelteKit + Tailwind CSS<br/>(SPA/SSR Client)"]
+        FE["SvelteKit + Tailwind CSS<br/>(SPA/SSR Responsive Web Client)"]
     end
 
-    subgraph Gateway ["Gateway & Reverse Proxy (Port 8080)"]
-        Proxy["API Gateway (Nginx)<br/>- Central Routing & CORS<br/>- Forward Authorization Headers"]
+    subgraph Gateway ["Reverse Proxy & Gateway (Port 8080)"]
+        Proxy["API Gateway (Nginx)<br/>- Request Routing<br/>- CORS & SSL Handling<br/>- Auth Header Forwarding"]
     end
 
     subgraph Microservices ["Microservices Layer (Golang)"]
-        AuthSvc["1. Auth & Identity Service (Port 8001)<br/>• Google OAuth2 Handler<br/>• Local Demo Auth<br/>• Issue Stateless JWT"]
+        AuthSvc["1. Auth & Identity Service (Port 8001)<br/>• Google OAuth2 Handler<br/>• 1-Click Demo Authenticator<br/>• Stateless JWT Issuer"]
         
-        AcadSvc["2. Academic & Schedule Service (Port 8002)<br/>• Courses, Sections, Enrollments (Đại trà / CLC)<br/>• Timetable Conflict Engine<br/>• Grades & GPA Engine<br/>• Exam Schedule"]
+        AcadSvc["2. Academic & Schedule Service (Port 8002)<br/>• Courses & Sections (Standard / CLC)<br/>• Registration & Conflict Detection<br/>• Grading & GPA Engine<br/>• Exam Timetable"]
         
-        AdminSvc["3. Student Affairs & Admin Service (Port 8003)<br/>• Tuition & Simulated Payment<br/>• Document Requests (NVQS, Bảng điểm)<br/>• Complaints & Review (Phúc khảo)"]
+        AdminSvc["3. Student Affairs & Admin Service (Port 8003)<br/>• Tuition & Simulated Payments<br/>• Document Requests (NVQS, Transcripts)<br/>• Grade Appeals Processing"]
         
-        NotifSvc["4. Notification & Email Service (Port 8004)<br/>• SMTP / Resend Email Engine<br/>• Async Background Worker (Go Goroutines)<br/>• In-app Notifications"]
+        NotifSvc["4. Notification Service (Port 8004)<br/>• Resend / SMTP Email Dispatcher<br/>• Asynchronous Worker Pool (Goroutines)<br/>• In-App Notifications"]
     end
 
-    subgraph DataStorage ["Database Layer (PostgreSQL 16)"]
+    subgraph DataStorage ["Data Persistence Layer (PostgreSQL 16)"]
         DB[("PostgreSQL Multi-Database Container<br/>- auth_db<br/>- academic_db<br/>- student_affairs_db")]
     end
 
-    FE -->|HTTP/REST Calls| Proxy
+    FE -->|HTTP/REST JSON| Proxy
     Proxy -->|/api/v1/auth/*| AuthSvc
     Proxy -->|/api/v1/academic/*| AcadSvc
     Proxy -->|/api/v1/student-affairs/*| AdminSvc
@@ -130,82 +137,81 @@ graph TB
     AcadSvc --> DB
     AdminSvc --> DB
     
-    AcadSvc -.->|Gọi nội bộ async phát thông báo| NotifSvc
-    AdminSvc -.->|Kích hoạt email khi duyệt đơn| NotifSvc
+    AcadSvc -.->|Internal async event| NotifSvc
+    AdminSvc -.->|Internal async event on approval| NotifSvc
 ```
 
 ---
 
-## 4. QUYẾT ĐỊNH THIẾT KẾ CỐT LÕI CỦA SOLUTION ARCHITECT
+## 4. Key Architectural Decisions (ADRs)
 
-### 4.1. Bài toán Xác thực: Google OAuth vs Mật khẩu truyền thống
-* **Thực trạng:** Nhóm đang phân vân giữa Google OAuth và mật khẩu thông thường, thiên về Google OAuth.
-* **Đánh giá Kiến trúc (Trade-off Analysis):**
-  - **Google OAuth 2.0:** Rất chuyên nghiệp, đúng tính chất trường đại học (giới hạn domain `@student.hcmus.edu.vn` hoặc `@clc.fitus.edu.vn`). Người dùng không sợ quên mật khẩu, hệ thống không phải lưu password plain/hash.
-  - **Điểm yếu khi bảo vệ đồ án:** Thầy cô chấm bài (TA / Giảng viên hướng dẫn) thường **không có tài khoản Google được cấu hình sẵn trong Google Cloud Console test users**, hoặc cần chuyển đổi nhanh giữa các vai trò (SV Đại trà, SV CLC, Giáo viên, Giáo vụ) để chấm bài trong 5 phút. Nếu chỉ có Google OAuth, buổi chấm bài sẽ bị gián đoạn nặng nề nếu tài khoản của thầy cô không khớp domain hoặc hết quota API.
-* **Giải pháp Kiến trúc Tối ưu: MÔ HÌNH HYBRID (Google OAuth + Demo Quick-Login)**
-  1. **Google OAuth 2.0 là phương thức chính trên giao diện:** Người dùng nhấn *"Đăng nhập bằng Email trường (@hcmus.edu.vn / @clc.fitus.edu.vn)"*.
-  2. **Thanh đăng nhập nhanh dự phòng (Demo Bar dành cho Giảng viên chấm bài):** 
-     - Thiết kế một thanh công cụ nhỏ ở chân trang login: Cho phép 1-click đăng nhập ngay vào 4 tài khoản mẫu:
-       * `[1-Click Sinh viên Đại trà]`
-       * `[1-Click Sinh viên CLC]`
-       * `[1-Click Giảng viên]`
-       * `[1-Click Giáo vụ (Admin)]`
-     - Cơ chế này sinh ngay JWT Token hợp lệ tương ứng giúp thầy cô test mọi phân hệ chỉ trong 1 giây mà không cần nhập OTP/OAuth.
+### 4.1. Authentication Architecture: Hybrid Authentication Strategy
+* **Context:** The team evaluated Google OAuth 2.0 vs. traditional credential-based login.
+* **Evaluation:**
+  * **Google OAuth 2.0:** Highly secure and authentic to the HCMUS ecosystem (restricting logins to institutional domains). No password hashing or recovery workflows needed.
+  * **Evaluation / Defense Risk:** Faculty reviewers, Teaching Assistants (TAs), and grading evaluators often do not possess pre-authorized institutional Google accounts or need to switch rapidly between roles (Standard Student, CLC Student, Teacher, Admin) during evaluation sessions.
+* **Architectural Decision: Hybrid Authentication (Google OAuth + 1-Click Demo Bar)**
+  1. **Primary Interface:** "Sign in with University Google Account" button for regular user authentication.
+  2. **Evaluation Toolbar (1-Click Demo Bar):** Positioned discreetly in the footer of the login screen, allowing instant token generation for:
+     * `[Demo: Standard Student]`
+     * `[Demo: High-Quality (CLC) Student]`
+     * `[Demo: Faculty / Lecturer]`
+     * `[Demo: Academic Affairs Staff]`
+  3. **Stateless JWT Authorization:** Tokens carry user identification, role, and program track (`program_type`), enabling downstream microservices to verify claims independently without remote auth queries.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Sinh viên / Thầy cô
+    actor User as Student / Evaluator
     participant FE as SvelteKit Frontend
     participant GW as API Gateway
     participant Auth as Auth Service
-    participant Google as Google OAuth API
+    participant Google as Google OAuth Provider
 
-    alt Đăng nhập bằng Google (Chính thức)
-        User->>FE: Bấm "Đăng nhập Google HCMUS"
-        FE->>Google: Chuyển hướng lấy Auth Code
-        Google-->>FE: Trả về Authorization Code
+    alt Official Flow: Google OAuth 2.0
+        User->>FE: Click "Sign in with HCMUS Google Account"
+        FE->>Google: Redirect for User Consent
+        Google-->>FE: Return Authorization Code
         FE->>GW: POST /api/v1/auth/google {code}
-        GW->>Auth: Chuyển tiếp request
-        Auth->>Google: Trao đổi Code lấy Profile & Email
-        Google-->>Auth: Email (@student.hcmus.edu.vn)
-        Auth->>Auth: Kiểm tra Domain & Cấp JWT Token
-        Auth-->>FE: Trả về JWT Token (kèm role)
-    else Đăng nhập Demo Chấm bài (1-Click)
-        User->>FE: Bấm chọn "Demo: Giáo vụ"
+        GW->>Auth: Forward request
+        Auth->>Google: Exchange Code for Profile & Email
+        Google-->>Auth: Verified Email
+        Auth->>Auth: Verify domain & issue Stateless JWT
+        Auth-->>FE: Return JWT {token, user, role}
+    else Evaluation Flow: 1-Click Demo Login
+        User->>FE: Click "Demo: Academic Staff"
         FE->>GW: POST /api/v1/auth/demo-login {role: "admin"}
-        GW->>Auth: Cấp phát ngay JWT có role="admin"
-        Auth-->>FE: Trả về JWT Token tức thì
+        GW->>Auth: Direct mock authentication
+        Auth->>Auth: Generate pre-configured Demo JWT
+        Auth-->>FE: Return valid JWT
     end
-    FE->>User: Điều hướng vào Dashboard tương ứng
+    FE->>User: Route to corresponding Role Dashboard
 ```
 
 ---
 
-### 4.2. Bài toán Dịch vụ Email (Notification & Email Service)
-* **Yêu cầu:** Gửi email thông báo tự động (thông báo kết quả duyệt đơn giấy tờ, kết quả phúc khảo, cảnh báo nợ học phí, thông báo lớp học mới).
-* **Giải pháp Kiến trúc:**
-  1. **Nhà cung cấp:** Sử dụng **Resend API** (hoặc **Gmail SMTP** với App Password). Resend có thư viện Go cực nhẹ, gửi email HTML đẹp mắt và có quota miễn phí 3,000 email/tháng (thừa đủ cho đồ án).
-  2. **Xử lý Bất đồng bộ (Async Non-blocking):** Việc gửi email qua mạng tốn từ 1 – 3 giây. Do đó, các nghiệp vụ (như sinh viên nộp đơn, giáo vụ duyệt đơn) **không được chờ gửi email xong mới trả về kết quả**.
-     - Trong Golang, sử dụng **Buffered Channel + Goroutine Worker Pool** (hàng đợi bộ nhớ nội bộ cực nhẹ, không cần cài đặt RabbitMQ hay Kafka):
-       * Endpoint nhận request $\rightarrow$ Lưu DB $\rightarrow$ Bắn message vào Go Channel $\rightarrow$ Trả kết quả ngay (HTTP 200).
-       * Worker Goroutine chạy nền đọc từ Channel và gọi Resend API để gửi mail.
-  3. **Lưu vết Hộp thư nội bộ (In-app Notification Fallback):**
-     - Đồng thời lưu 1 bản ghi vào bảng `notifications` trong cơ sở dữ liệu. Nếu sinh viên không kiểm tra email cá nhân, khi đăng nhập vào web vẫn thấy chuông thông báo (icon chuông) hiển thị nội dung y hệt.
+### 4.2. Notification & Email Architecture
+* **Requirement:** Automated dispatch of email notifications upon critical workflow triggers (document approval, grade appeal resolution, tuition reminders).
+* **Architectural Decision:**
+  1. **Delivery Provider:** Integration with **Resend API** (or Gmail SMTP with App Passwords), providing clean HTML templates and reliable delivery.
+  2. **Asynchronous Non-blocking Worker:**
+     * HTTP handlers process database updates and immediately push notification payloads into an in-memory **Go Buffered Channel**.
+     * Handlers respond with HTTP 200 without waiting for remote network SMTP transmission.
+     * Background **Goroutine Worker Pools** dequeue and execute email deliveries with retry mechanisms.
+  3. **In-App Notification Fallback:** Every notification event creates a persistent record in the `notifications` table, ensuring users view pending alerts directly in their web notification center even without email access.
 
 ---
 
-## 5. KẾ HOẠCH BÀN GIAO & PHÂN CÔNG (ROADMAP PA2 -> PA5)
+## 5. Course Phase Gates & Delivery Roadmap
 
-| Giai đoạn | Thời gian | Nhiệm vụ của Nhóm | Trách nhiệm của Architect (Hiếu) |
+| Phase Gate | Milestone | Core Team Deliverables | System Architect Responsibilities |
 | :--- | :--- | :--- | :--- |
-| **PA2 (Hiện tại)** | Tuần 4 – 5 | Hoàn thiện tài liệu SRS, đặc tả Use Case chi tiết dựa trên ma trận trên. | Cùng BA (Đức) chuẩn hóa bộ Use Case Model; dựng Wireframe giao diện cho các phân hệ SV, GV, Giáo vụ. |
-| **PA3** | Tuần 6 – 7 | Thiết kế C4 Diagrams, ERD từng database, API Specs. | **Chủ trì PA3:** Xuất bản tài liệu C4 Container, thiết kế lược đồ bảng cho 3 database và viết OpenAPI Spec. |
-| **PA4** | Tuần 8 | Lập kế hoạch kiểm thử, viết Test Cases. | Hỗ trợ Tester (Phát): Cung cấp bộ test data mẫu cho sinh viên Đại trà & CLC. |
-| **PA5** | Tuần 8 – 10 | 3 tuần lập trình & tích hợp hoàn chỉnh. | Cùng Lead Dev (Hùng) dựng Docker Compose, code Auth Service (Google OAuth + Demo), hỗ trợ ráp giao diện Svelte. |
-| **Demo** | Tuần 11 | Báo cáo môn học & Thuyết trình trực tiếp. | Thiết lập kịch bản demo trọn vẹn: Đăng ký môn $\rightarrow$ Nhập điểm $\rightarrow$ Nộp đơn giấy tờ $\rightarrow$ Duyệt & Nhận mail. |
+| **PA2 (Current)** | Requirements Specification (End of W5) | Complete SRS, Use Case Specifications, Screen Mockups. | Align architectural feasibility with BA; construct UI wireframes for Standard vs. CLC, Faculty, and Admin workflows. |
+| **PA3** | System Design (End of W7) | C4 diagrams, ERDs, OpenAPI Specifications, Sequence Diagrams. | **Lead PA3:** Author C4 Container/Component models, produce PostgreSQL DDL schemas for all three service databases, define REST API specs. |
+| **PA4** | Test Planning (End of W8) | Test strategy, test matrix, automated test cases, seed data. | Assist QA: Provide comprehensive SQL seed scripts (sample courses, overlapping schedules, test user profiles). |
+| **PA5** | Construction & Deployment (Weeks 8–10) | Full working Go + Svelte implementation, Docker deployment, test verification. | **Co-lead developer:** Set up Nginx Gateway, implement Auth Service (Google OAuth + Demo), assist frontend-backend integration. |
+| **Final Demo** | Final Presentation (Week 11) | Live demonstration of core workflows, final report. | Orchestrate live demo sequence: Course registration $\rightarrow$ Conflict resolution $\rightarrow$ Grade entry $\rightarrow$ Document approval. |
 
 ---
 
-*Tài liệu này được lưu trữ tại `docs/design/system-architecture-spec.md` làm căn cứ kỹ thuật chính thức cho toàn bộ dự án Portal67.*
+*This specification document is maintained in `docs/design/system-architecture-spec.md` as the authoritative technical baseline for Portal67.*
