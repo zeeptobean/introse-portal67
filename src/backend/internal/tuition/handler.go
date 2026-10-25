@@ -100,9 +100,24 @@ func (h *Handler) UpdatePayment(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "invalid JSON body")
 		return
 	}
-	payment, err := h.service.UpdatePayment(r.Context(), id, in)
+	u, _ := auth.UserFromContext(r.Context())
+	payment, err := h.service.UpdatePayment(r.Context(), u.ID, id, in)
 	if err != nil {
 		h.fail(w, r, "update payment", err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, payment)
+}
+
+// Payment returns one payment with its change history for staff.
+func (h *Handler) Payment(w http.ResponseWriter, r *http.Request) {
+	id, ok := httpx.PathID(w, r)
+	if !ok {
+		return
+	}
+	payment, err := h.service.Payment(r.Context(), id)
+	if err != nil {
+		h.fail(w, r, "get payment", err)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, payment)

@@ -3,6 +3,8 @@ package tuition
 import (
 	"errors"
 	"time"
+
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/term"
 )
 
 type PaymentStatus string
@@ -49,14 +51,6 @@ type Student struct {
 	Email           string  `json:"email"`
 }
 
-type Term struct {
-	ID       int64  `json:"id,string"`
-	Code     string `json:"code"`
-	Name     string `json:"name"`
-	StartsOn string `json:"starts_on"`
-	EndsOn   string `json:"ends_on"`
-}
-
 type Staff struct {
 	ID       int64  `json:"id,string"`
 	FullName string `json:"full_name"`
@@ -65,23 +59,50 @@ type Staff struct {
 type Charge struct {
 	ID          int64     `json:"id,string"`
 	StudentID   int64     `json:"student_id,string"`
-	Term        Term      `json:"term"`
+	Term        term.Term `json:"term"`
 	Description string    `json:"description"`
 	AmountVND   int64     `json:"amount_vnd"`
 	CreatedBy   Staff     `json:"created_by"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// Payment is a simulated payment. History is only filled when a single
+// payment is loaded.
 type Payment struct {
-	ID         int64         `json:"id,string"`
-	StudentID  int64         `json:"student_id,string"`
-	Term       Term          `json:"term"`
-	AmountVND  int64         `json:"amount_vnd"`
-	Status     PaymentStatus `json:"status"`
-	PaidAt     time.Time     `json:"paid_at"`
-	Note       *string       `json:"note"`
-	RecordedBy Staff         `json:"recorded_by"`
-	UpdatedAt  time.Time     `json:"updated_at"`
+	ID         int64          `json:"id,string"`
+	StudentID  int64          `json:"student_id,string"`
+	Term       term.Term      `json:"term"`
+	AmountVND  int64          `json:"amount_vnd"`
+	Status     PaymentStatus  `json:"status"`
+	PaidAt     time.Time      `json:"paid_at"`
+	Note       *string        `json:"note"`
+	RecordedBy Staff          `json:"recorded_by"`
+	UpdatedBy  Staff          `json:"updated_by"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	History    []PaymentEvent `json:"history,omitempty"`
+}
+
+// PaymentAction names the change recorded by a PaymentEvent. ActionSnapshot
+// is the state of a payment when history tracking began.
+type PaymentAction string
+
+const (
+	ActionSnapshot PaymentAction = "snapshot"
+	ActionRecorded PaymentAction = "recorded"
+	ActionUpdated  PaymentAction = "updated"
+	ActionVoided   PaymentAction = "voided"
+)
+
+// PaymentEvent is the payment as it was right after one change.
+type PaymentEvent struct {
+	ID        int64         `json:"id,string"`
+	Actor     Staff         `json:"actor"`
+	Action    PaymentAction `json:"action"`
+	AmountVND int64         `json:"amount_vnd"`
+	Status    PaymentStatus `json:"status"`
+	PaidAt    time.Time     `json:"paid_at"`
+	Note      *string       `json:"note"`
+	CreatedAt time.Time     `json:"created_at"`
 }
 
 // Totals summarizes charges against recorded payments. A negative balance is
@@ -94,7 +115,7 @@ type Totals struct {
 }
 
 type TermSummary struct {
-	Term     Term      `json:"term"`
+	Term     term.Term `json:"term"`
 	Charges  []Charge  `json:"charges"`
 	Payments []Payment `json:"payments"`
 	Totals

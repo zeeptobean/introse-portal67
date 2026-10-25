@@ -18,8 +18,10 @@ WHERE NOT EXISTS (
     WHERE x.student_id = u.id AND x.term_id = t.id AND x.description = c.description
 );
 
-INSERT INTO tuition_payments (student_id, term_id, amount_vnd, status, recorded_by, paid_at, note, updated_at)
-SELECT u.id, t.id, p.amount_vnd, p.status, staff.id, p.paid_at::timestamptz, p.note, p.paid_at::timestamptz
+-- The voided payment was voided one hour after it was recorded.
+INSERT INTO tuition_payments (student_id, term_id, amount_vnd, status, recorded_by, updated_by, paid_at, note, updated_at)
+SELECT u.id, t.id, p.amount_vnd, p.status, staff.id, staff.id, p.paid_at::timestamptz, p.note,
+    p.paid_at::timestamptz + CASE WHEN p.status = 'voided' THEN interval '1 hour' ELSE interval '0' END
 FROM (VALUES
     ('student1@portal67.test', '2026-1', 8250000, 'recorded', '2026-02-10 10:00+07', 'Bank transfer'),
     ('student1@portal67.test', '2026-2', 3000000, 'recorded', '2026-09-15 10:00+07', 'First installment'),
@@ -34,7 +36,23 @@ WHERE NOT EXISTS (
     WHERE x.student_id = u.id AND x.term_id = t.id AND x.note = p.note
 );
 
+INSERT INTO tuition_payment_events (payment_id, actor_id, action, amount_vnd, status, paid_at, note, created_at)
+SELECT p.id, p.recorded_by, e.action, p.amount_vnd, e.status, p.paid_at, p.note, e.created_at
+FROM tuition_payments p
+CROSS JOIN LATERAL (VALUES
+    ('recorded', 'recorded', p.paid_at),
+    ('voided', 'voided', p.updated_at)
+) AS e (action, status, created_at)
+WHERE p.student_id IN (SELECT id FROM users WHERE email IN ('student1@portal67.test', 'student2@portal67.test'))
+    AND (e.action = 'recorded' OR p.status = 'voided')
+    AND NOT EXISTS (SELECT 1 FROM tuition_payment_events x WHERE x.payment_id = p.id);
+
 -- +goose Down
+DELETE FROM tuition_payment_events WHERE payment_id IN (
+    SELECT p.id FROM tuition_payments p
+    JOIN users u ON u.id = p.student_id
+    WHERE u.email IN ('student1@portal67.test', 'student2@portal67.test')
+);
 DELETE FROM tuition_payments WHERE student_id IN (
     SELECT id FROM users WHERE email IN ('student1@portal67.test', 'student2@portal67.test')
 );

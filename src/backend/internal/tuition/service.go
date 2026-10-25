@@ -11,6 +11,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/term"
 )
 
 // Service owns business rules and transaction boundaries for semester charges and simulated payments.
@@ -43,7 +45,7 @@ func (s *Service) Summary(ctx context.Context, studentID int64, termID *int64) (
 	}
 
 	byTerm := make(map[int64]*TermSummary)
-	termFor := func(t Term) *TermSummary {
+	termFor := func(t term.Term) *TermSummary {
 		ts, ok := byTerm[t.ID]
 		if !ok {
 			ts = &TermSummary{Term: t, Charges: []Charge{}, Payments: []Payment{}}
@@ -145,17 +147,38 @@ func (s *Service) RecordPayment(ctx context.Context, staffID int64, in PaymentIn
 		}
 		var err error
 		id, err = s.store.insertPayment(ctx, tx, staffID, in)
-		return err
+		if err != nil {
+			return err
+		}
+		return s.store.insertPaymentEvent(ctx, tx, id, staffID, ActionRecorded)
 	})
 	if err != nil {
 		return Payment{}, err
 	}
-	return s.store.paymentByID(ctx, id)
+	return s.Payment(ctx, id)
 }
 
-// UpdatePayment corrects or voids a recorded payment. Voided payments are kept
-// for history and cannot be changed again.
-func (s *Service) UpdatePayment(ctx context.Context, id int64, in PaymentUpdate) (Payment, error) {
+// Payment returns a payment with its change history.
+func (s *Service) Payment(ctx context.Context, id int64) (Payment, error) {
+	p, err := s.store.paymentByID(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Payment{}, ErrPaymentNotFound
+	}
+	if err != nil {
+		return Payment{}, err
+	}
+	p.History, err = s.store.paymentHistory(ctx, id)
+	if err != nil {
+		return Payment{}, err
+	}
+	return p, nil
+}
+
+// UpdatePayment corrects or voids a recorded payment on behalf of staffID.
+// Every change is appended to the payment's history; a request that changes
+// nothing records nothing. Voided payments are kept for history and cannot be
+// changed again.
+func (s *Service) UpdatePayment(ctx context.Context, staffID, id int64, in PaymentUpdate) (Payment, error) {
 	if in.AmountVND == nil && in.PaidAt == nil && in.Note == nil && in.Status == nil {
 		return Payment{}, &ValidationError{Message: "no fields to update"}
 	}
@@ -188,12 +211,20 @@ func (s *Service) UpdatePayment(ctx context.Context, id int64, in PaymentUpdate)
 		if status == PaymentVoided {
 			return ErrPaymentVoided
 		}
-		return s.store.updatePayment(ctx, tx, id, in, clearNote)
+		changed, err := s.store.updatePayment(ctx, tx, staffID, id, in, clearNote)
+		if err != nil || !changed {
+			return err
+		}
+		action := ActionUpdated
+		if in.Status != nil && *in.Status == PaymentVoided {
+			action = ActionVoided
+		}
+		return s.store.insertPaymentEvent(ctx, tx, id, staffID, action)
 	})
 	if err != nil {
 		return Payment{}, err
 	}
-	return s.store.paymentByID(ctx, id)
+	return s.Payment(ctx, id)
 }
 
 func (s *Service) checkStudentAndTerm(ctx context.Context, tx pgx.Tx, studentID, termID int64) error {

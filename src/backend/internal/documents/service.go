@@ -3,6 +3,7 @@ package documents
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"unicode/utf8"
 
@@ -130,7 +131,7 @@ func validateText(field, value string) error {
 		return &ValidationError{Message: field + " is required"}
 	}
 	if utf8.RuneCountInString(value) > maxTextLength {
-		return &ValidationError{Message: field + " must be at most 1000 characters"}
+		return &ValidationError{Message: fmt.Sprintf("%s must be at most %d characters", field, maxTextLength)}
 	}
 	return nil
 }

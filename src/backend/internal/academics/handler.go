@@ -168,6 +168,20 @@ func (h *Handler) Roster(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, roster)
 }
 
+func (h *Handler) GradeHistory(w http.ResponseWriter, r *http.Request) {
+	id, ok := httpx.PathID(w, r)
+	if !ok {
+		return
+	}
+	u, _ := auth.UserFromContext(r.Context())
+	history, err := h.service.GradeHistory(r.Context(), u.ID, id)
+	if err != nil {
+		h.fail(w, r, "list grade history", err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, history)
+}
+
 type saveGradesRequest struct {
 	Grades []GradeInput `json:"grades"`
 }
@@ -208,7 +222,8 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, action string, er
 	case errors.Is(err, ErrNotStudent), errors.Is(err, ErrNotAssigned):
 		httpx.Error(w, http.StatusForbidden, err.Error())
 	case errors.Is(err, ErrAlreadyEnrolled), errors.Is(err, ErrCourseTaken), errors.Is(err, ErrSectionFull),
-		errors.Is(err, ErrTermEnded), errors.Is(err, ErrAlreadyCancelled), errors.Is(err, ErrAlreadyGraded):
+		errors.Is(err, ErrRegistrationNotOpen), errors.Is(err, ErrRegistrationClosed), errors.Is(err, ErrGradingClosed),
+		errors.Is(err, ErrAlreadyCancelled), errors.Is(err, ErrAlreadyGraded):
 		httpx.Error(w, http.StatusConflict, err.Error())
 	default:
 		slog.ErrorContext(r.Context(), action, "error", err)

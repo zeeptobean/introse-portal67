@@ -17,13 +17,19 @@ CROSS JOIN (VALUES
 WHERE gs.name = 'Sample 10-point scale'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO terms (code, name, starts_on, ends_on, grading_scale_id)
-SELECT t.code, t.name, t.starts_on::date, t.ends_on::date, gs.id
+-- 2026-1 is closed for registration and grading. 2026-2 keeps registration
+-- open until mid-December so the demo can register and cancel.
+INSERT INTO terms (code, name, starts_on, ends_on, grading_scale_id,
+    registration_opens_at, registration_closes_at, grading_closes_at)
+SELECT t.code, t.name, t.starts_on::date, t.ends_on::date, gs.id,
+    t.registration_opens_at::timestamptz, t.registration_closes_at::timestamptz, t.grading_closes_at::timestamptz
 FROM grading_scales gs
 CROSS JOIN (VALUES
-    ('2026-1', 'Semester 1, 2026', '2026-02-02', '2026-06-28'),
-    ('2026-2', 'Semester 2, 2026', '2026-09-07', '2027-01-17')
-) AS t (code, name, starts_on, ends_on)
+    ('2026-1', 'Semester 1, 2026', '2026-02-02', '2026-06-28',
+        '2026-01-05 00:00+07', '2026-02-16 00:00+07', '2026-07-31 00:00+07'),
+    ('2026-2', 'Semester 2, 2026', '2026-09-07', '2027-01-17',
+        '2026-08-03 00:00+07', '2026-12-15 00:00+07', '2027-02-15 00:00+07')
+) AS t (code, name, starts_on, ends_on, registration_opens_at, registration_closes_at, grading_closes_at)
 WHERE gs.name = 'Sample 10-point scale'
 ON CONFLICT DO NOTHING;
 
@@ -121,10 +127,21 @@ JOIN users u ON u.email = g.student_email
 JOIN courses c ON c.code = g.course_code
 JOIN terms t ON t.code = '2026-1'
 JOIN sections sec ON sec.course_id = c.id AND sec.term_id = t.id AND sec.section_code = '01'
-JOIN enrollments en ON en.student_id = u.id AND en.section_id = sec.id
+JOIN enrollments en ON en.student_id = u.id AND en.section_id = sec.id AND en.status = 'enrolled'
 ON CONFLICT DO NOTHING;
 
+INSERT INTO grade_revisions (enrollment_id, score, graded_by, created_at)
+SELECT g.enrollment_id, g.score, g.graded_by, g.updated_at
+FROM grades g
+WHERE NOT EXISTS (SELECT 1 FROM grade_revisions r WHERE r.enrollment_id = g.enrollment_id);
+
 -- +goose Down
+DELETE FROM grade_revisions WHERE enrollment_id IN (
+    SELECT e.id FROM enrollments e
+    JOIN sections s ON s.id = e.section_id
+    JOIN terms t ON t.id = s.term_id
+    WHERE t.code IN ('2026-1', '2026-2')
+);
 DELETE FROM grades WHERE enrollment_id IN (
     SELECT e.id FROM enrollments e
     JOIN sections s ON s.id = e.section_id

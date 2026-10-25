@@ -3,7 +3,11 @@ package auth
 import (
 	"errors"
 	"log/slog"
+	"math"
+	"net"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 
@@ -12,14 +16,29 @@ import (
 
 const sessionUserIDKey = "userID"
 
+// Login attempts are limited per client IP and per email. Successful logins
+// clear the email's counter but still count against the IP.
+const (
+	loginWindow           = 15 * time.Minute
+	loginAttemptsPerIP    = 30
+	loginAttemptsPerEmail = 5
+)
+
 // Handler exposes HTTP endpoints for login, logout, and account identity.
 type Handler struct {
-	service  *Service
-	sessions *scs.SessionManager
+	service      *Service
+	sessions     *scs.SessionManager
+	loginByIP    *limiter
+	loginByEmail *limiter
 }
 
 func NewHandler(service *Service, sessions *scs.SessionManager) *Handler {
-	return &Handler{service: service, sessions: sessions}
+	return &Handler{
+		service:      service,
+		sessions:     sessions,
+		loginByIP:    newLimiter(loginAttemptsPerIP, loginWindow),
+		loginByEmail: newLimiter(loginAttemptsPerEmail, loginWindow),
+	}
 }
 
 type loginRequest struct {
@@ -28,6 +47,10 @@ type loginRequest struct {
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	if ok, retry := h.loginByIP.allow(clientIP(r)); !ok {
+		tooManyAttempts(w, retry)
+		return
+	}
 	var in loginRequest
 	if err := httpx.DecodeJSON(w, r, &in); err != nil {
 		httpx.BadRequest(w, "invalid JSON body")
@@ -35,6 +58,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Email == "" || in.Password == "" {
 		httpx.BadRequest(w, "email and password are required")
+		return
+	}
+	emailKey := NormalizeEmail(in.Email)
+	if ok, retry := h.loginByEmail.allow(emailKey); !ok {
+		tooManyAttempts(w, retry)
 		return
 	}
 
@@ -52,6 +80,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		httpx.InternalError(w)
 		return
 	}
+	h.loginByEmail.reset(emailKey)
 
 	// A fresh token on privilege change prevents session fixation.
 	if err := h.sessions.RenewToken(ctx); err != nil {
@@ -61,6 +90,21 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	h.sessions.Put(ctx, sessionUserIDKey, u.ID)
 	httpx.WriteJSON(w, http.StatusOK, u)
+}
+
+// clientIP returns the host part of the connection's remote address. The API
+// is not behind a trusted proxy, so forwarding headers are ignored.
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+func tooManyAttempts(w http.ResponseWriter, retry time.Duration) {
+	w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(retry.Seconds()))))
+	httpx.Error(w, http.StatusTooManyRequests, "too many login attempts; try again later")
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {

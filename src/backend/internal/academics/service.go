@@ -12,18 +12,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// campus is the time zone of class meetings and term dates.
-var campus = loadCampus()
-
-// loadCampus falls back to a fixed UTC+7 zone when tzdata is unavailable.
-func loadCampus() *time.Location {
-	loc, err := time.LoadLocation("Asia/Ho_Chi_Minh")
-	if err != nil {
-		return time.FixedZone("ICT", 7*60*60)
-	}
-	return loc
-}
-
 // Service owns business rules and transaction boundaries for course registration, scheduling, and academic results.
 type Service struct {
 	store *Store
@@ -67,16 +55,15 @@ func (s *Service) Register(ctx context.Context, studentID, sectionID int64) (Enr
 		if err != nil {
 			return err
 		}
-		if sec.TermEndsOn.Before(today()) {
-			return ErrTermEnded
+		if err := checkRegistrationWindow(sec, time.Now()); err != nil {
+			return err
 		}
 
-		existingID, status, err := s.store.enrollmentFor(ctx, tx, studentID, sectionID)
-		switch {
-		case errors.Is(err, pgx.ErrNoRows):
-		case err != nil:
+		enrolled, err := s.store.activelyEnrolled(ctx, tx, studentID, sectionID)
+		if err != nil {
 			return err
-		case status == StatusEnrolled:
+		}
+		if enrolled {
 			return ErrAlreadyEnrolled
 		}
 
@@ -87,11 +74,11 @@ func (s *Service) Register(ctx context.Context, studentID, sectionID int64) (Enr
 		if taken {
 			return ErrCourseTaken
 		}
-		enrolled, err := s.store.countActive(ctx, tx, sectionID)
+		seatsTaken, err := s.store.countActive(ctx, tx, sectionID)
 		if err != nil {
 			return err
 		}
-		if enrolled >= sec.Capacity {
+		if seatsTaken >= sec.Capacity {
 			return ErrSectionFull
 		}
 		conflicts, err := s.store.scheduleConflicts(ctx, tx, studentID, sectionID)
@@ -102,10 +89,8 @@ func (s *Service) Register(ctx context.Context, studentID, sectionID int64) (Enr
 			return &ScheduleConflictError{Conflicts: conflicts}
 		}
 
-		if existingID != 0 {
-			enrollmentID = existingID
-			return s.store.reactivateEnrollment(ctx, tx, existingID)
-		}
+		// A re-registration after a cancellation gets a new row; the cancelled
+		// one stays as history.
 		enrollmentID, err = s.store.insertEnrollment(ctx, tx, studentID, sectionID)
 		return err
 	})
@@ -115,8 +100,8 @@ func (s *Service) Register(ctx context.Context, studentID, sectionID int64) (Enr
 	return s.store.enrollmentByID(ctx, enrollmentID)
 }
 
-// Cancel cancels the student's active enrollment. Graded enrollments cannot
-// be cancelled.
+// Cancel cancels the student's active enrollment while the term's
+// registration window is open. Graded enrollments cannot be cancelled.
 func (s *Service) Cancel(ctx context.Context, studentID, enrollmentID int64) (Enrollment, error) {
 	err := s.store.withTx(ctx, func(tx pgx.Tx) error {
 		if _, _, err := s.store.lockUser(ctx, tx, studentID); err != nil {
@@ -133,8 +118,8 @@ func (s *Service) Cancel(ctx context.Context, studentID, enrollmentID int64) (En
 		if err != nil {
 			return err
 		}
-		if sec.TermEndsOn.Before(today()) {
-			return ErrTermEnded
+		if err := checkRegistrationWindow(sec, time.Now()); err != nil {
+			return err
 		}
 		// Re-read the status now that the section lock is held.
 		_, status, err := s.store.enrollmentSection(ctx, tx, enrollmentID, studentID)
@@ -279,21 +264,37 @@ func gpa(points float64, credits int) *float64 {
 
 // Roster lists the students actively enrolled in the lecturer's section.
 func (s *Service) Roster(ctx context.Context, lecturerID, sectionID int64) ([]RosterEntry, error) {
-	assigned, err := s.store.sectionLecturer(ctx, sectionID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrSectionNotFound
-	}
-	if err != nil {
+	if err := s.checkLecturer(ctx, lecturerID, sectionID); err != nil {
 		return nil, err
-	}
-	if assigned != lecturerID {
-		return nil, ErrNotAssigned
 	}
 	return s.store.roster(ctx, sectionID)
 }
 
-// SaveGrades records scores for active enrollments of the lecturer's section.
-// Either all grades are saved or none are.
+// GradeHistory lists every score saved in the lecturer's section, oldest first.
+func (s *Service) GradeHistory(ctx context.Context, lecturerID, sectionID int64) ([]GradeRevision, error) {
+	if err := s.checkLecturer(ctx, lecturerID, sectionID); err != nil {
+		return nil, err
+	}
+	return s.store.gradeHistory(ctx, sectionID)
+}
+
+func (s *Service) checkLecturer(ctx context.Context, lecturerID, sectionID int64) error {
+	assigned, err := s.store.sectionLecturer(ctx, sectionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrSectionNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if assigned != lecturerID {
+		return ErrNotAssigned
+	}
+	return nil
+}
+
+// SaveGrades records scores for active enrollments of the lecturer's section
+// until the term's grading deadline. Either all grades are saved or none are,
+// and every changed score is added to the grade history.
 func (s *Service) SaveGrades(ctx context.Context, lecturerID, sectionID int64, grades []GradeInput) ([]RosterEntry, error) {
 	if len(grades) == 0 {
 		return nil, &GradeInputError{Message: "at least one grade is required"}
@@ -313,7 +314,7 @@ func (s *Service) SaveGrades(ctx context.Context, lecturerID, sectionID int64, g
 	}
 
 	err := s.store.withTx(ctx, func(tx pgx.Tx) error {
-		assigned, err := s.store.lockSectionShared(ctx, tx, sectionID)
+		assigned, gradingClosesAt, err := s.store.lockSectionShared(ctx, tx, sectionID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrSectionNotFound
 		}
@@ -323,6 +324,9 @@ func (s *Service) SaveGrades(ctx context.Context, lecturerID, sectionID int64, g
 		if assigned != lecturerID {
 			return ErrNotAssigned
 		}
+		if !time.Now().Before(gradingClosesAt) {
+			return ErrGradingClosed
+		}
 		active, err := s.store.activeEnrollmentIDs(ctx, tx, sectionID, ids)
 		if err != nil {
 			return err
@@ -331,7 +335,7 @@ func (s *Service) SaveGrades(ctx context.Context, lecturerID, sectionID int64, g
 			if !active[g.EnrollmentID] {
 				return &GradeInputError{Message: fmt.Sprintf("enrollment %d is not an active enrollment of this section", g.EnrollmentID)}
 			}
-			if err := s.store.upsertGrade(ctx, tx, g.EnrollmentID, lecturerID, g.Score); err != nil {
+			if err := s.store.saveGrade(ctx, tx, g.EnrollmentID, lecturerID, g.Score); err != nil {
 				return err
 			}
 		}
@@ -353,9 +357,14 @@ func validateScore(score float64) error {
 	return nil
 }
 
-// today returns the current campus date at midnight UTC, matching how pgx
-// decodes DATE values.
-func today() time.Time {
-	y, m, d := time.Now().In(campus).Date()
-	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+// checkRegistrationWindow allows registration changes from the opening time
+// up to, but not including, the closing time.
+func checkRegistrationWindow(sec lockedSection, now time.Time) error {
+	if now.Before(sec.RegistrationOpensAt) {
+		return ErrRegistrationNotOpen
+	}
+	if !now.Before(sec.RegistrationClosesAt) {
+		return ErrRegistrationClosed
+	}
+	return nil
 }

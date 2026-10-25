@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/dbx"
 )
 
 const userColumns = "id, email, institutional_id, full_name, date_of_birth, role, is_active, created_at"
@@ -80,13 +81,12 @@ func (s *Store) updateUser(ctx context.Context, id int64, input UserUpdate) (Use
 // listStudents returns up to 50 students whose email, name, or institutional
 // ID contains the query, ordered by name.
 func (s *Store) listStudents(ctx context.Context, query string) ([]User, error) {
-	pattern := "%" + likeEscaper.Replace(query) + "%"
 	rows, err := s.db.Query(ctx, `
 		SELECT `+userColumns+` FROM users
 		WHERE role = 'student'
 			AND (email ILIKE $1 OR full_name ILIKE $1 OR institutional_id ILIKE $1)
 		ORDER BY full_name, id
-		LIMIT 50`, pattern)
+		LIMIT 50`, dbx.ContainsPattern(query))
 	if err != nil {
 		return nil, fmt.Errorf("list students: %w", err)
 	}
@@ -97,4 +97,9 @@ func (s *Store) listStudents(ctx context.Context, query string) ([]User, error) 
 	return users, nil
 }
 
-var likeEscaper = strings.NewReplacer(`\`, `\`, `%`, `\%`, `_`, `\_`)
+func (s *Store) updatePasswordHash(ctx context.Context, id int64, hash string) error {
+	if _, err := s.db.Exec(ctx, "UPDATE users SET password_hash = $2 WHERE id = $1", id, hash); err != nil {
+		return fmt.Errorf("update password hash of user %d: %w", id, err)
+	}
+	return nil
+}

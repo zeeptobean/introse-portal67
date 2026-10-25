@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/term"
 )
 
 type CourseKind string
@@ -20,16 +22,18 @@ const (
 )
 
 var (
-	ErrSectionNotFound    = errors.New("section not found")
-	ErrEnrollmentNotFound = errors.New("enrollment not found")
-	ErrNotStudent         = errors.New("only active students can register")
-	ErrAlreadyEnrolled    = errors.New("already registered for this section")
-	ErrCourseTaken        = errors.New("already registered for another section of this course in the same term")
-	ErrSectionFull        = errors.New("section is full")
-	ErrTermEnded          = errors.New("the term of this section has ended")
-	ErrAlreadyCancelled   = errors.New("enrollment is already cancelled")
-	ErrAlreadyGraded      = errors.New("cannot cancel an enrollment that has a grade")
-	ErrNotAssigned        = errors.New("you are not the lecturer of this section")
+	ErrSectionNotFound     = errors.New("section not found")
+	ErrEnrollmentNotFound  = errors.New("enrollment not found")
+	ErrNotStudent          = errors.New("only active students can register")
+	ErrAlreadyEnrolled     = errors.New("already registered for this section")
+	ErrCourseTaken         = errors.New("already registered for another section of this course in the same term")
+	ErrSectionFull         = errors.New("section is full")
+	ErrRegistrationNotOpen = errors.New("registration for this term has not opened yet")
+	ErrRegistrationClosed  = errors.New("registration for this term has closed")
+	ErrGradingClosed       = errors.New("grading for this term has closed; grades are final")
+	ErrAlreadyCancelled    = errors.New("enrollment is already cancelled")
+	ErrAlreadyGraded       = errors.New("cannot cancel an enrollment that has a grade")
+	ErrNotAssigned         = errors.New("you are not the lecturer of this section")
 )
 
 // ScheduleConflictError lists the existing meetings that clash with the
@@ -56,12 +60,12 @@ func (e *GradeInputError) Error() string { return e.Message }
 
 var weekdayNames = map[int16]string{1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
 
+// Term is a term with its registration and grading deadlines.
 type Term struct {
-	ID       int64  `json:"id,string"`
-	Code     string `json:"code"`
-	Name     string `json:"name"`
-	StartsOn string `json:"starts_on"`
-	EndsOn   string `json:"ends_on"`
+	term.Term
+	RegistrationOpensAt  time.Time `json:"registration_opens_at"`
+	RegistrationClosesAt time.Time `json:"registration_closes_at"`
+	GradingClosesAt      time.Time `json:"grading_closes_at"`
 }
 
 type Course struct {
@@ -195,4 +199,15 @@ type RosterEntry struct {
 type GradeInput struct {
 	EnrollmentID int64   `json:"enrollment_id,string"`
 	Score        float64 `json:"score"`
+}
+
+// GradeRevision is one saved score in an enrollment's grade history.
+type GradeRevision struct {
+	ID           int64     `json:"id,string"`
+	EnrollmentID int64     `json:"enrollment_id,string"`
+	StudentID    int64     `json:"student_id,string"`
+	FullName     string    `json:"full_name"`
+	Score        float64   `json:"score"`
+	GradedBy     Lecturer  `json:"graded_by"`
+	CreatedAt    time.Time `json:"created_at"`
 }

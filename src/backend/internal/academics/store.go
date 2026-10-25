@@ -3,11 +3,13 @@ package academics
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/dbx"
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/term"
 )
 
 // Store holds the database dependency for course registration, scheduling, and academic results.
@@ -19,15 +21,14 @@ func NewStore(db *pgxpool.Pool) *Store {
 	return &Store{db: db}
 }
 
-// withTx runs fn in a transaction, committing when fn returns nil.
 func (s *Store) withTx(ctx context.Context, fn func(pgx.Tx) error) error {
-	return pgx.BeginFunc(ctx, s.db, fn)
+	return dbx.WithTx(ctx, s.db, fn)
 }
 
-const termColumns = "t.id, t.code, t.name, to_char(t.starts_on, 'YYYY-MM-DD'), to_char(t.ends_on, 'YYYY-MM-DD')"
+const termColumns = term.Columns + ", t.registration_opens_at, t.registration_closes_at, t.grading_closes_at"
 
 func termDest(t *Term) []any {
-	return []any{&t.ID, &t.Code, &t.Name, &t.StartsOn, &t.EndsOn}
+	return append(term.Dest(&t.Term), &t.RegistrationOpensAt, &t.RegistrationClosesAt, &t.GradingClosesAt)
 }
 
 func (s *Store) listTerms(ctx context.Context) ([]Term, error) {
@@ -88,14 +89,13 @@ func (s *Store) listSections(ctx context.Context, f SectionFilter, studentID, le
 	if lecturerID != 0 {
 		lecturer = &lecturerID
 	}
-	pattern := "%" + likeEscaper.Replace(strings.TrimSpace(f.Query)) + "%"
 	rows, err := s.db.Query(ctx, sectionQuery+`
 		WHERE ($2::bigint IS NULL OR s.term_id = $2)
 			AND ($3::text IS NULL OR c.kind = $3)
 			AND (c.code ILIKE $4 OR c.name ILIKE $4)
 			AND ($5::bigint IS NULL OR s.lecturer_id = $5)
 		ORDER BY t.starts_on DESC, c.code, s.section_code`,
-		studentID, f.TermID, kind, pattern, lecturer)
+		studentID, f.TermID, kind, dbx.ContainsPattern(f.Query), lecturer)
 	if err != nil {
 		return nil, fmt.Errorf("list sections: %w", err)
 	}
@@ -108,8 +108,6 @@ func (s *Store) listSections(ctx context.Context, f SectionFilter, studentID, le
 	}
 	return sections, nil
 }
-
-var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 func (s *Store) attachMeetings(ctx context.Context, sections []Section) error {
 	if len(sections) == 0 {
@@ -146,22 +144,6 @@ func (s *Store) attachMeetings(ctx context.Context, sections []Section) error {
 	return nil
 }
 
-func (s *Store) sectionByID(ctx context.Context, id, studentID int64) (Section, error) {
-	rows, err := s.db.Query(ctx, sectionQuery+" WHERE s.id = $2", studentID, id)
-	if err != nil {
-		return Section{}, fmt.Errorf("find section %d: %w", id, err)
-	}
-	sec, err := pgx.CollectExactlyOneRow(rows, scanSection)
-	if err != nil {
-		return Section{}, fmt.Errorf("find section %d: %w", id, err)
-	}
-	sections := []Section{sec}
-	if err := s.attachMeetings(ctx, sections); err != nil {
-		return Section{}, err
-	}
-	return sections[0], nil
-}
-
 // lockUser locks the user's row so that one student's registration changes
 // run one at a time. It must be the first lock taken by those transactions.
 func (s *Store) lockUser(ctx context.Context, tx pgx.Tx, id int64) (role string, active bool, err error) {
@@ -173,11 +155,12 @@ func (s *Store) lockUser(ctx context.Context, tx pgx.Tx, id int64) (role string,
 }
 
 type lockedSection struct {
-	CourseID   int64
-	TermID     int64
-	LecturerID int64
-	Capacity   int32
-	TermEndsOn time.Time
+	CourseID             int64
+	TermID               int64
+	LecturerID           int64
+	Capacity             int32
+	RegistrationOpensAt  time.Time
+	RegistrationClosesAt time.Time
 }
 
 // lockSection locks the section row. Seat counting must happen while the lock
@@ -185,25 +168,31 @@ type lockedSection struct {
 func (s *Store) lockSection(ctx context.Context, tx pgx.Tx, id int64) (lockedSection, error) {
 	var sec lockedSection
 	err := tx.QueryRow(ctx, `
-		SELECT s.course_id, s.term_id, s.lecturer_id, s.capacity, t.ends_on
+		SELECT s.course_id, s.term_id, s.lecturer_id, s.capacity, t.registration_opens_at, t.registration_closes_at
 		FROM sections s JOIN terms t ON t.id = s.term_id
 		WHERE s.id = $1
 		FOR UPDATE OF s`, id).
-		Scan(&sec.CourseID, &sec.TermID, &sec.LecturerID, &sec.Capacity, &sec.TermEndsOn)
+		Scan(&sec.CourseID, &sec.TermID, &sec.LecturerID, &sec.Capacity,
+			&sec.RegistrationOpensAt, &sec.RegistrationClosesAt)
 	if err != nil {
 		return lockedSection{}, fmt.Errorf("lock section %d: %w", id, err)
 	}
 	return sec, nil
 }
 
-// enrollmentFor returns the student's enrollment row for the section, if any.
-func (s *Store) enrollmentFor(ctx context.Context, tx pgx.Tx, studentID, sectionID int64) (id int64, status string, err error) {
-	err = tx.QueryRow(ctx, "SELECT id, status FROM enrollments WHERE student_id = $1 AND section_id = $2",
-		studentID, sectionID).Scan(&id, &status)
+// activelyEnrolled reports whether the student has an active enrollment in
+// the section. Cancelled enrollments are history and do not count.
+func (s *Store) activelyEnrolled(ctx context.Context, tx pgx.Tx, studentID, sectionID int64) (bool, error) {
+	var exists bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM enrollments
+			WHERE student_id = $1 AND section_id = $2 AND status = 'enrolled'
+		)`, studentID, sectionID).Scan(&exists)
 	if err != nil {
-		return 0, "", fmt.Errorf("find enrollment: %w", err)
+		return false, fmt.Errorf("check enrollment: %w", err)
 	}
-	return id, status, nil
+	return exists, nil
 }
 
 // enrolledInCourse reports whether the student actively takes another section
@@ -283,19 +272,6 @@ func (s *Store) insertEnrollment(ctx context.Context, tx pgx.Tx, studentID, sect
 	return id, nil
 }
 
-// reactivateEnrollment turns a cancelled enrollment back into an active one
-// and resets its timestamps.
-func (s *Store) reactivateEnrollment(ctx context.Context, tx pgx.Tx, id int64) error {
-	_, err := tx.Exec(ctx, `
-		UPDATE enrollments
-		SET status = 'enrolled', registered_at = now(), cancelled_at = NULL
-		WHERE id = $1`, id)
-	if err != nil {
-		return fmt.Errorf("reactivate enrollment %d: %w", id, err)
-	}
-	return nil
-}
-
 // enrollmentSection returns the section and status of the student's
 // enrollment, or pgx.ErrNoRows when it does not belong to the student.
 func (s *Store) enrollmentSection(ctx context.Context, tx pgx.Tx, enrollmentID, studentID int64) (sectionID int64, status string, err error) {
@@ -359,7 +335,7 @@ func (s *Store) enrollmentByID(ctx context.Context, id int64) (Enrollment, error
 func (s *Store) studentEnrollments(ctx context.Context, studentID int64, termID *int64) ([]Enrollment, error) {
 	rows, err := s.db.Query(ctx, enrollmentQuery+`
 		WHERE e.student_id = $1 AND ($2::bigint IS NULL OR s.term_id = $2)
-		ORDER BY t.starts_on DESC, e.status DESC, c.code`, studentID, termID)
+		ORDER BY t.starts_on DESC, e.status DESC, c.code, e.registered_at DESC, e.id DESC`, studentID, termID)
 	if err != nil {
 		return nil, fmt.Errorf("list enrollments: %w", err)
 	}
@@ -464,14 +440,19 @@ func (s *Store) results(ctx context.Context, studentID int64) ([]CourseResult, e
 	return results, nil
 }
 
-// lockSectionShared returns the section's lecturer and holds a share lock so
-// that enrollments cannot be cancelled while grades are written.
-func (s *Store) lockSectionShared(ctx context.Context, tx pgx.Tx, sectionID int64) (lecturerID int64, err error) {
-	err = tx.QueryRow(ctx, "SELECT lecturer_id FROM sections WHERE id = $1 FOR SHARE", sectionID).Scan(&lecturerID)
+// lockSectionShared returns the section's lecturer and the term's grading
+// deadline, and holds a share lock so that enrollments cannot be cancelled
+// while grades are written.
+func (s *Store) lockSectionShared(ctx context.Context, tx pgx.Tx, sectionID int64) (lecturerID int64, gradingClosesAt time.Time, err error) {
+	err = tx.QueryRow(ctx, `
+		SELECT s.lecturer_id, t.grading_closes_at
+		FROM sections s JOIN terms t ON t.id = s.term_id
+		WHERE s.id = $1
+		FOR SHARE OF s`, sectionID).Scan(&lecturerID, &gradingClosesAt)
 	if err != nil {
-		return 0, fmt.Errorf("lock section %d: %w", sectionID, err)
+		return 0, time.Time{}, fmt.Errorf("lock section %d: %w", sectionID, err)
 	}
-	return lecturerID, nil
+	return lecturerID, gradingClosesAt, nil
 }
 
 func (s *Store) sectionLecturer(ctx context.Context, sectionID int64) (int64, error) {
@@ -524,15 +505,50 @@ func (s *Store) activeEnrollmentIDs(ctx context.Context, tx pgx.Tx, sectionID in
 	return active, nil
 }
 
-func (s *Store) upsertGrade(ctx context.Context, tx pgx.Tx, enrollmentID, lecturerID int64, score float64) error {
+// saveGrade sets the enrollment's current score and appends it to the grade
+// history. Saving the score the enrollment already has changes nothing, so
+// resubmitting a whole roster does not rewrite graded_by or add revisions.
+func (s *Store) saveGrade(ctx context.Context, tx pgx.Tx, enrollmentID, lecturerID int64, score float64) error {
 	_, err := tx.Exec(ctx, `
-		INSERT INTO grades (enrollment_id, score, graded_by, updated_at)
-		VALUES ($1, $2, $3, now())
-		ON CONFLICT (enrollment_id) DO UPDATE
-		SET score = EXCLUDED.score, graded_by = EXCLUDED.graded_by, updated_at = EXCLUDED.updated_at`,
+		WITH saved AS (
+			INSERT INTO grades (enrollment_id, score, graded_by, updated_at)
+			VALUES ($1, $2, $3, now())
+			ON CONFLICT (enrollment_id) DO UPDATE
+			SET score = EXCLUDED.score, graded_by = EXCLUDED.graded_by, updated_at = EXCLUDED.updated_at
+			WHERE grades.score IS DISTINCT FROM EXCLUDED.score
+			RETURNING enrollment_id, score, graded_by, updated_at
+		)
+		INSERT INTO grade_revisions (enrollment_id, score, graded_by, created_at)
+		SELECT enrollment_id, score, graded_by, updated_at FROM saved`,
 		enrollmentID, score, lecturerID)
 	if err != nil {
 		return fmt.Errorf("save grade for enrollment %d: %w", enrollmentID, err)
 	}
 	return nil
+}
+
+// gradeHistory returns every saved score of the section's enrollments,
+// including enrollments that are no longer active, oldest first.
+func (s *Store) gradeHistory(ctx context.Context, sectionID int64) ([]GradeRevision, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT r.id, e.id, st.id, st.full_name, r.score::float8, l.id, l.full_name, r.created_at
+		FROM grade_revisions r
+		JOIN enrollments e ON e.id = r.enrollment_id
+		JOIN users st ON st.id = e.student_id
+		JOIN users l ON l.id = r.graded_by
+		WHERE e.section_id = $1
+		ORDER BY r.created_at, r.id`, sectionID)
+	if err != nil {
+		return nil, fmt.Errorf("list grade history of section %d: %w", sectionID, err)
+	}
+	revisions, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (GradeRevision, error) {
+		var r GradeRevision
+		err := row.Scan(&r.ID, &r.EnrollmentID, &r.StudentID, &r.FullName, &r.Score,
+			&r.GradedBy.ID, &r.GradedBy.FullName, &r.CreatedAt)
+		return r, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list grade history of section %d: %w", sectionID, err)
+	}
+	return revisions, nil
 }

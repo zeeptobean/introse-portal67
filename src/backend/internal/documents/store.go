@@ -6,6 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/dbx"
 )
 
 // Store holds the database dependency for document requests and staff decisions.
@@ -17,9 +19,8 @@ func NewStore(db *pgxpool.Pool) *Store {
 	return &Store{db: db}
 }
 
-// withTx runs fn in a transaction, committing when fn returns nil.
 func (s *Store) withTx(ctx context.Context, fn func(pgx.Tx) error) error {
-	return pgx.BeginFunc(ctx, s.db, fn)
+	return dbx.WithTx(ctx, s.db, fn)
 }
 
 // requestQuery selects requests with their student and the decision event,

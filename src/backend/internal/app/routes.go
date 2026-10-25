@@ -65,12 +65,14 @@ func NewHandler(pool *pgxpool.Pool) http.Handler {
 	mux.Handle("GET /api/lecturer/sections", requireRole(auth.RoleLecturer, academicHandler.LecturerSections))
 	mux.Handle("GET /api/sections/{id}/grades", requireRole(auth.RoleLecturer, academicHandler.Roster))
 	mux.Handle("PUT /api/sections/{id}/grades", requireRole(auth.RoleLecturer, academicHandler.SaveGrades))
+	mux.Handle("GET /api/sections/{id}/grade-history", requireRole(auth.RoleLecturer, academicHandler.GradeHistory))
 
 	mux.Handle("GET /api/me/tuition", requireRole(auth.RoleStudent, tuitionHandler.Summary))
 	mux.Handle("GET /api/staff/students", requireRole(auth.RoleStaff, authHandler.ListStudents))
 	mux.Handle("GET /api/staff/students/{id}/tuition", requireRole(auth.RoleStaff, tuitionHandler.StudentSummary))
 	mux.Handle("POST /api/staff/charges", requireRole(auth.RoleStaff, tuitionHandler.AddCharge))
 	mux.Handle("POST /api/staff/payments", requireRole(auth.RoleStaff, tuitionHandler.RecordPayment))
+	mux.Handle("GET /api/staff/payments/{id}", requireRole(auth.RoleStaff, tuitionHandler.Payment))
 	mux.Handle("PATCH /api/staff/payments/{id}", requireRole(auth.RoleStaff, tuitionHandler.UpdatePayment))
 
 	mux.Handle("POST /api/document-requests", requireRole(auth.RoleStudent, documentHandler.Submit))
