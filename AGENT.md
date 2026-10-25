@@ -228,8 +228,19 @@ All commit messages must strictly adhere to the guidelines set in `.github/copil
 * Provide an `.env.example` template with dummy placeholder values for team setup.
 
 ### 7.4. AI Usage Transparency & Logging
-* As required by HCMUS faculty policy, all AI-generated or AI-assisted contributions (code generation, refactoring, architectural documentation) must be logged in `docs/ai-usage/`.
-* Log entries must specify: tool used, purpose/prompt, scope of code/docs produced, and human review/verification steps.
+* **Faculty Policy Compliance:** As required by HCMUS faculty policy, all AI-generated or AI-assisted contributions (code generation, refactoring, architectural diagrams, requirement specifications, test suites) must be logged in [`docs/ai-usage/`](docs/ai-usage/).
+* **Cadence & Individual Accountability:**
+  * **Frequency:** Exactly **1 log entry per week per member** (e.g., `W02.md`, `W03.md`).
+  * **Dedicated Folders:** Each member manages their logs in their designated folder under `docs/ai-usage/<MSSV>-<username>/` (e.g., `docs/ai-usage/24127003-vtmhieu/`).
+  * **Deadline:** Synchronized with the Weekly Status Report — **Every Wednesday at 23:59**.
+* **Mandatory Entry Structure:** Each log must capture:
+  1. Tool used (ChatGPT, Claude, Copilot, Cursor, Antigravity, Gemini).
+  2. Purpose and input prompt.
+  3. AI output summary.
+  4. **Human Review & Modifications (Critical Grading Metric):** Exactly what AI got wrong or missed, and what the human verified, corrected, or optimized for Portal67.
+  5. Verification steps (unit tests, linter, peer-review) and commit/PR traceability links.
+  6. Self-reflection on time saved and lessons learned.
+* **Master Templates & Agent Directives:** Refer to [`docs/ai-usage/README.md`](docs/ai-usage/README.md) for workflow details, [`docs/ai-usage/TEMPLATE.md`](docs/ai-usage/TEMPLATE.md) for the master template, and [`docs/ai-usage/AGENT.md`](docs/ai-usage/AGENT.md) for specialized AI agent protocols.
 
 ### 7.5. Communication & Weekly Status Cadence
 * Team communications occur primarily via Discord (and Messenger). Team members are expected to respond within 24 hours on weekdays.
@@ -271,3 +282,8 @@ When acting as an AI assistant within this repository:
 * Never delete existing working files, documentation, or git keeps without explicit confirmation.
 * Before declaring any implementation complete, verify and test the code.
 * Always preserve existing comments and documentation integrity.
+
+### 8.4. Mandatory AI Usage Logging Assistance
+* When completing significant architectural, requirement, coding, or testing tasks, the AI Agent must proactively provide or format a pre-filled **AI Usage Log snippet** tailored to the active member's folder under `docs/ai-usage/<MSSV>-<username>/`.
+* Flag all assumptions, potential edge cases, and areas requiring human validation (e.g., concurrency, HCMUS academic constraints, mock vs. real data boundaries) so the student can complete their "Human Review & Modifications" section effectively.
+* Strictly consult [`docs/ai-usage/AGENT.md`](docs/ai-usage/AGENT.md) for detailed agent logging workflows.
