@@ -1,4 +1,5 @@
-import adapter from "@sveltejs/adapter-auto";
+import adapter from "@sveltejs/adapter-node";
+import { env } from "node:process";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig, lazyPlugins } from "vite-plus";
 
@@ -6,11 +7,11 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    proxy: {
-      "/api": "http://127.0.0.1:8080",
-    },
   },
-  fmt: {},
+  // Svelte markup ignores insignificant whitespace so the formatter can break
+  // long chains of tags and blocks onto their own lines.
+  fmt: { svelte: true, htmlWhitespaceSensitivity: "ignore" },
+  test: { include: ["src/**/*.test.ts"] },
   lint: {
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
@@ -24,10 +25,11 @@ export default defineConfig({
           filename.split(/[/\\]/).includes("node_modules") ? undefined : true,
       },
 
-      // adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-      // If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-      // See https://svelte.dev/docs/kit/adapters for more information about adapters.
+      // The frontend now needs a server for authenticated loads and actions.
       adapter: adapter(),
+      // SvelteKit 3 uses paths.origin for a fixed, build-time public origin.
+      // Without it, adapter-node expects HTTPS or trusted protocol headers.
+      paths: { origin: env.ORIGIN },
     }),
   ]),
 });

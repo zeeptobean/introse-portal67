@@ -92,9 +92,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, u)
 }
 
-// clientIP returns the host part of the connection's remote address. The API
-// is not behind a trusted proxy, so forwarding headers are ignored.
+// clientIP uses a verified proxy address when TrustClientIP supplied one;
+// otherwise it uses the immediate connection. Raw forwarding headers are ignored.
 func clientIP(r *http.Request) string {
+	if address, ok := r.Context().Value(clientIPKey{}).(string); ok {
+		return address
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,7 +16,7 @@ import (
 )
 
 // NewHandler wires shared dependencies, registers routes, and applies sessions.
-func NewHandler(pool *pgxpool.Pool) http.Handler {
+func NewHandler(pool *pgxpool.Pool, trustedProxies []netip.Prefix) http.Handler {
 	sessions := newSessionManager(pool)
 	authStore := auth.NewStore(pool)
 	authService := auth.NewService(authStore)
@@ -80,5 +81,5 @@ func NewHandler(pool *pgxpool.Pool) http.Handler {
 	mux.Handle("GET /api/document-requests/{id}", authHandler.RequireLogin(http.HandlerFunc(documentHandler.Get)))
 	mux.Handle("PATCH /api/document-requests/{id}", requireRole(auth.RoleStaff, documentHandler.Decide))
 
-	return sessions.LoadAndSave(mux)
+	return auth.TrustClientIP(trustedProxies, sessions.LoadAndSave(mux))
 }

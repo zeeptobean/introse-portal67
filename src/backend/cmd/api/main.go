@@ -38,7 +38,7 @@ func run(ctx context.Context) error {
 
 	server := &http.Server{
 		Addr:              cfg.APIAddr,
-		Handler:           app.NewHandler(pool),
+		Handler:           app.NewHandler(pool, cfg.TrustedProxyCIDRs),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,

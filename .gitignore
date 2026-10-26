@@ -5,6 +5,8 @@ node_modules/
 
 # Testing
 coverage/
+/src/frontend/test-results/
+/src/frontend/playwright-report/
 
 # Production builds
 build/
