@@ -45,3 +45,43 @@
   - [x] Verified file created at [`docs/requirements/PA2_Requirements_Specification.md`](../../requirements/PA2_Requirements_Specification.md).
   - [x] Cross-checked against Portal67 Solution Architecture baseline and AGENT.md guidelines.
   - [x] Commit reference / PR link: `docs(requirements): create PA2 SRS baseline with FR, NFR, DR, and AC`
+
+
+---
+
+### Task 2: Requirements Synchronization with PA3 Architectural Design & Solution Architecture v3.0
+* **Date:** 2026-10-31  
+* **Tool Used:** Antigravity (Gemini 3.8 Flash High)  
+* **Objective:** Synchronize the PA2 Requirements Baseline with PA3 System Design Specification v3.0 and Portal67 Solution Architecture v3.0, incorporating key architectural decisions:
+  1. HCMUS Dual-Track Academic Model (Standard 2 semesters vs. Project-Based 3 trimesters).
+  2. Theory-Practice Section Hierarchy with atomic dual-seat reservation.
+  3. High-concurrency `registration-service` engine utilizing in-memory Redis Lua scripts.
+  4. Dynamic assessment rubrics achieving strict BCNF normalization.
+  5. Multi-lecturer co-teaching and Teaching Assistant (TA) role permissions.
+  6. Grade appeal (*Phúc khảo*) state machine.
+  7. Requirements Evolution Log (`CHG-01` to `CHG-07`) and expanded bidirectional RTM.
+
+* **Input Prompt:**
+  ```text
+  đọc toàn bộ những thay đổi trong docs/design/PA3_System_Design_Specification.md và docs/design/Portal67_Solution_Architecture.md và giúp tôi cập nhật cho docs/requirements/PA2_Requirements_Specification.md
+  ```
+
+* **AI Output Summary:**
+  - Upgraded [`docs/requirements/PA2_Requirements_Specification.md`](../../requirements/PA2_Requirements_Specification.md) to **Document Version 3.0**:
+    - **Actor Model Refinement (Section 1.2):** Explicitly separated Student profiles (`STANDARD` vs `PROJECT_BASED`), Lecturer roles (Primary Lecturer vs TA), and Administrative divisions (Phòng Đào tạo vs VP Đề án vs CTSV).
+    - **Catalog Expansion (Section 2):** Refined `FR-REG-01`, `FR-REG-02`, `FR-REG-03`, `FR-GRD-03`, `FR-ADM-01`, `FR-ADM-02`, and added `FR-REG-07` (Cross-Registration Petitions).
+    - **NFR Tightening (Section 3):** Added `NFR-USAB-03` (WCAG 2.1 AA Accessibility checklist) and `NFR-ARCH-01` (Microservice Fault Isolation), with sharpened registration write latency ($p95 \le 300\text{ms}$, Redis Lua $\le 10\text{ms}$).
+    - **Domain Rules (Section 4):** Added `DR-REG-06` (Cohort Isolation), `DR-REG-07` (Integrated Theory-Practice Enrollment), `DR-REG-08` (Atomic Lua Reservation), and `DR-GRD-06` (Multi-Lecturer Submission Guard).
+    - **BDD Scenarios (Section 5):** Added acceptance tests for Integrated Theory-Practice enrollment (`AC-REG-01`), Cross-track enrollment blocking (`AC-REG-04`), TA submission rejection (`AC-GRD-04`), and Configurable Grade Appeal (`AC-REQ-02`).
+    - **Bidirectional RTM (Section 6):** Mapped all requirements to target microservices, API routes, database schemas, and NFRs.
+    - **Requirements Evolution Log (Section 7):** Formally documented `CHG-01` through `CHG-07`.
+  - Authored standalone report deliverable [`docs/requirements/PA2_Section_5_Requirements.md`](../../requirements/PA2_Section_5_Requirements.md) strictly formatted to the official HCMUS SE Dept. SRS Template:
+    - **5.1 Functional Requirements:** All statements formatted as *"The system shall ..."*, partitioned into features `F01`–`F08`, MoSCoW prioritized, and attributed to institutional sources.
+    - **5.2 Non-Functional Requirements:** Verifiable conditions with concrete quantitative thresholds and verification methods.
+    - **5.3 Domain Requirements and Business Rules:** Formatted into `BR-01`–`BR-19` with statutory and policy citations.
+    - **5.4 Acceptance Criteria:** BDD Given/When/Then scenarios for all 8 Must-have features (`F01`–`F08`) prepared for PA4 test suites.
+
+* **Verification Steps:**
+  - [x] Verified file updated at [`docs/requirements/PA2_Requirements_Specification.md`](../../requirements/PA2_Requirements_Specification.md).
+  - [x] Verified standalone deliverable created at [`docs/requirements/PA2_Section_5_Requirements.md`](../../requirements/PA2_Section_5_Requirements.md).
+  - [x] Verified complete alignment with `docs/design/PA3_System_Design_Specification.md` and `docs/design/Portal67_Solution_Architecture.md`.

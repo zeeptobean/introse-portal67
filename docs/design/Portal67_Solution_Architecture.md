@@ -384,29 +384,27 @@ Courses and sections are pre-warmed in Redis partitions (`catalog:{term}:STANDAR
 - Campus location (CS1 Nguyễn Văn Cừ vs. CS2 Linh Trung) mapped from physical classrooms (`academic.classrooms`).
 - Real-time seating capacity meter (Green $< 80\%$, Amber $80\% - 99\%$, Red $100\%$).
 
-### B. Course and Section Hierarchy (Theory-Practice Pairing)
+### B. Course and Section Hierarchy (Integrated Theory-Practice Scheduling)
 
 To match actual university course structures under strict BCNF normalization:
 
 - **Course:** Defines the subject in the catalog (e.g., `CSC10002` - Data Structures, 4 credits). Contains the boolean flag `has_lab`:
-  - `has_lab = FALSE`: Pure theoretical subject (e.g., Calculus, Philosophy). Only opens `THEORY` sections (`parent_section_id = NULL`).
-  - `has_lab = TRUE`: Integrated course (e.g., Data Structures, Computer Networks). Opens 1 `THEORY` section (lecture hall, 120 seats) and multiple child `PRACTICE` sections (computer labs, 35–40 seats each).
-- **Section Modality:** Strictly partitioned into `THEORY` and `PRACTICE`:
-  - `THEORY`: Primary lecture offering (`parent_section_id = NULL`).
-  - `PRACTICE`: Sub-group lab session (`parent_section_id NOT NULL`, referencing parent Theory section).
-- **Physical Classroom Decoupling:** Classrooms are isolated into `academic.classrooms` with building, campus, capacity, and room type, linked via `academic.section_schedules.classroom_id`.
-- **Multi-Faculty Assignment:** Teaching duties are decoupled into `academic.section_lecturers` ($N:M$) supporting co-lecturers and lab TAs.
-- **Registration Record:** A confirmed enrollment in `registration.enrollments` records both `section_id` (Theory) and `lab_section_id` (Practice lab), ensuring unified gradebook and billing evaluation.
+  - `has_lab = FALSE`: Pure theoretical subject (e.g., Calculus, Philosophy). The section includes only Theory lecture periods.
+  - `has_lab = TRUE`: Integrated course (e.g., Data Structures, Computer Networks). Each section offering encapsulates **both** a primary Theory lecture session (e.g., in lecture hall) and a required Practice lab session (e.g., in computer lab).
+- **Unified Section Offering:** Each selectable section (lớp học phần, e.g., `CSC10002_01`) encapsulates its complete weekly delivery. If a course has a laboratory component, selecting that section automatically enrolls and schedules both the Theory and Practice sessions into the student's timetable—students do not register them separately or mix sessions across different sections.
+- **Physical Classroom Decoupling:** Classrooms are isolated into `academic.classrooms` with building, campus, capacity, and room type, linked via `academic.section_schedules.classroom_id`. Meeting sessions within a section specify `session_type` (`THEORY` vs. `PRACTICE`).
+- **Multi-Faculty Assignment:** Teaching duties are decoupled into `academic.section_lecturers` ($N:M$) supporting lead professors, co-lecturers, and lab TAs under a unified section roster.
+- **Registration Record:** A confirmed enrollment in `registration.enrollments` records `section_id`, binding all scheduled sessions (both Theory and Practice) to the student.
 
 ### C. Student-Controlled Selection Policy & High-Concurrency Engine
 
 For this version:
 
-- **Flash-Crowd Concurrency Protection:** Registrations are handled by `registration-service` via Redis atomic Lua scripts (`dual_seat_reserve.lua`). When enrolling in a course with lab, the script atomically decrements seat quotas for both the Theory section and the selected child Practice section in sub-2ms, preventing race conditions without database locks.
+- **Flash-Crowd Concurrency Protection:** Registrations are handled by `registration-service` via Redis atomic Lua scripts (`seat_reserve.lua`). When enrolling in a section, the script atomically decrements the section seat quota in sub-2ms, preventing race conditions and over-allocations without database row locks.
 - **Asynchronous Write-Behind Queue:** Confirmed reservations are enqueued to Redis Streams and committed in batch transactions to PostgreSQL by background persistence workers.
-- **Advisory Overlap Warnings:** Schedule conflicts are rendered with an amber warning tooltip (*"Lịch học trùng với học phần [Mã lớp] — Quy chế nhà trường khuyến nghị không trùng giờ nhưng không chặn đăng ký"*), allowing student self-determination under academic advisor guidance.
+- **Advisory Overlap Warnings:** Schedule conflicts across any scheduled session (Theory or Practice) are rendered with an amber warning tooltip (*"Lịch học trùng với học phần [Mã lớp] — Quy chế nhà trường khuyến nghị không trùng giờ nhưng không chặn đăng ký"*), allowing student self-determination under academic advisor guidance.
 - **Program Boundary Enforcement:** The API rejects mismatched registrations (`HTTP 403 Forbidden: PROGRAM_COHORT_MISMATCH`) if a Standard student attempts to enroll in a Project-Based section.
-- **Accordion UI Experience:** Selecting a Theory section dynamically expands an interactive Accordion displaying available child Practice lab groups with individual meeting times and computer lab locations.
+- **Section UI Experience:** Each section card clearly displays all associated meeting sessions (Theory day/time/room and Practice lab day/time/room), with real-time seat availability indicator. Selecting the section automatically schedules both sessions.
 
 ### D. Schedule planner based on the supplied repository
 
@@ -990,8 +988,8 @@ The following are proposed rules for the project baseline. Any rule based on an 
 | BR-REG-09 | Course/section changes after the registration window require the configured exception workflow. |
 | BR-REG-10 | Maximum credits/course count must not be enforced unless the project team configures and documents that policy. |
 | BR-REG-11 | **Program Track Cohort Isolation:** Standard track students (`STANDARD`) cannot register Project-Based sections (`PROJECT_BASED`). Project-Based students may only enroll in Standard sections if `is_cross_enrollment_allowed = TRUE` under formal academic petition. |
-| BR-REG-12 | **Theory-Practice Pairing:** For courses where `has_lab = TRUE`, students must select exactly one Theory section (`THEORY`) and one child Practice lab group (`PRACTICE`) belonging to that Theory parent. |
-| BR-REG-13 | **In-Memory Atomic Reservation:** Peak concurrent enrollment requests execute via Redis Lua scripts (`dual_seat_reserve.lua`), ensuring sub-2ms dual-seat deduction and zero over-subscription without database lock contention. |
+| BR-REG-12 | **Integrated Theory-Practice Enrollment:** For courses where `has_lab = TRUE`, each course section encapsulates both Theory and Practice lecture/lab schedules. Selecting a section automatically registers and schedules both sessions into the student's timetable without separate or unbundled registration. |
+| BR-REG-13 | **In-Memory Atomic Reservation:** Peak concurrent enrollment requests execute via Redis Lua scripts (`seat_reserve.lua`), ensuring sub-2ms seat deduction and zero over-subscription without database lock contention. |
 
 The capacity rule is retained because a section may have a finite number of seats. If the prototype intentionally ignores capacity, document that as a demo simplification instead of implementing a misleading “remaining seats” value.
 
@@ -1050,9 +1048,11 @@ The capacity rule is retained because a section may have a finite number of seat
 
 | Entity | Purpose |
 |---|---|
-| `users` | Login identity, verified email, password hash, account status |
+| `accounts` | Core user identity, institutional identifier (MSSV/MSCB), official email, account status |
+| `passwords` | Cryptographic password hashes (Argon2id) for local credential authentication |
+| `oauth_identities` | External institutional SSO/OAuth provider linkages (Google sub, provider email) |
 | `roles` / `permissions` | RBAC role definitions and granular authorizations |
-| `user_roles` | Scoped user-to-role mappings |
+| `account_roles` | Scoped user-to-role mappings |
 | `students` | Student profile and MSSV, linked to `academic_programs` via `program_id FK` (BCNF compliant) |
 | `staff_profiles` | Staff identity, staff code, and assigned faculty/office |
 | `faculties` / `departments` | Organizational academic units |
@@ -1060,38 +1060,36 @@ The capacity rule is retained because a section may have a finite number of seat
 | `academic_semesters` | Academic school year, term number (1, 2, or 3 for summer trimester), program track, and dates |
 | `classrooms` | Physical facility inventory: room code, building, campus (`CS1_NV_CU` vs. `CS2_LINH_TRUNG`), capacity, and room type |
 | `courses` | Catalog subject record with `has_lab (BOOLEAN)` indicator |
-| `course_sections` | Selectable class offering strictly typed into `THEORY` (lecture) or `PRACTICE` (lab), with `parent_section_id` hierarchy |
+| `course_sections` | Selectable class offering (`academic.sections`), encapsulating Theory and integrated Practice schedules |
 | `section_lecturers` | N:M co-teaching and TA faculty assignments with `PRIMARY`, `CO_LECTURER`, and `TA` roles |
-| `section_schedules` | Scheduled meeting periods linked directly to `classroom_id` (preventing room double-booking) |
-| `enrollments` | High-throughput confirmed registrations recording paired `section_id` (Theory) and `lab_section_id` (Practice) |
+| `section_schedules` | Scheduled meeting periods linked directly to `classroom_id` and typed by `session_type` (`THEORY` vs `PRACTICE`) |
+| `enrollments` | High-throughput confirmed registrations recording `section_id` |
 | `curricula` / `curriculum_courses` | Program curriculum roadmap and prerequisites |
 | `grade_sheets` | Section evaluation rubric container and Four-Eyes review state |
 | `grade_components` | Dynamic evaluation rubric items, weights (summing to 100%), and descriptions |
 | `student_grades` | Component evaluation scores per student enrollment |
 | `grade_correction_logs` | Immutable audit trail for approved post-finalization grade rectifications |
 | `exams` / `exam_requests` | Formal examination timetables and postponement petitions |
-| `grade_appeals` | Statutory 7-day student grade review petitions (`Phúc khảo`) |
+| `grade_appeals` | Student grade review petitions (`Phúc khảo`) with submission window configured by Academic Affairs |
 | `student_affairs_requests` | Administrative document petitions and military deferments |
 | `tuition_invoices` / `tuition_items` | Track-specific tuition billing statements and VietQR payment reconciliation |
 | `notifications` | Asynchronous persistent in-app notifications and email dispatch logs |
 | `audit_logs` | Tamper-resistant immutable system access and mutation logs |
 
-## 8.2. Course hierarchy & Theory-Practice Pairing
+## 8.2. Course hierarchy & Integrated Theory-Practice Scheduling
 
 ```text
 AcademicProgram (STANDARD: 2 terms/yr | PROJECT_BASED: 3 trimesters/yr)
   └── Semester (Term 1, 2, or 3)
         └── Course (has_lab: Boolean)
-              └── Section: THEORY (parent_section_id = NULL, Lecture Hall at CS1/CS2)
-                    ├── SectionSchedule -> Classroom (Hall / Theory Room)
-                    ├── SectionLecturers (N:M) -> Primary Lecturer / Co-Lecturers
-                    ├── GradeSheet -> GradeComponents -> StudentGrades
-                    └── Child Section: PRACTICE (parent_section_id = Theory.id, Computer Lab at CS1)
-                          ├── SectionSchedule -> Classroom (Computer Lab)
-                          └── SectionLecturers (N:M) -> Lab TAs
+              └── Section (Lớp học phần, e.g. CSC10002_01)
+                    ├── SectionSchedule (THEORY) -> Classroom (Hall / Theory Room at CS1/CS2)
+                    ├── SectionSchedule (PRACTICE) -> Classroom (Computer Lab at CS1/CS2) [if has_lab = TRUE]
+                    ├── SectionLecturers (N:M) -> Primary Lecturer / Co-Lecturers / Lab TAs
+                    └── GradeSheet -> GradeComponents -> StudentGrades
 
 Student (program_id FK -> AcademicProgram)
-  └── Enrollment (section_id [THEORY], lab_section_id [PRACTICE])
+  └── Enrollment (section_id -> Section)
 ```
 
 This normalized hierarchy accommodates pure theory courses, integrated theory-plus-lab courses, and multi-lecturer co-teaching while preventing timetable collisions and room double-booking under strict BCNF.
@@ -1123,8 +1121,8 @@ Use **pragmatic modular microservices orchestrated with Docker Compose**. To bal
 1. **Frontend:** Single-page application built on SvelteKit, TypeScript, and Tailwind CSS.
 2. **API Gateway / Reverse Proxy:** Nginx edge proxy enforcing TLS termination, per-student rate limiting (3 req/s), and path routing.
 3. **Auth & Identity Service (Port 8081):** User credentials, PBKDF2/Argon2id hashing, Demo Persona Switcher, and scoped JWT issuance.
-4. **Academic Management Service (Port 8082):** Master curricula, multi-track academic programs (Standard vs. Project-Based), terms (2 terms vs. 3 trimesters), course offerings, Theory/Practice section hierarchies, physical classrooms (`academic.classrooms`), co-teaching faculty assignments (`academic.section_lecturers`), and Four-Eyes gradebook workflows.
-5. **Course Registration Service (Port 8085):** **Dedicated high-concurrency enrollment engine.** Decoupled from `academic-service` to isolate flash crowds at 8:00 AM. Employs in-memory Redis atomic Lua scripts (`dual_seat_reserve.lua`) for sub-2ms seat quota reservations and asynchronous message queue persistence (Redis Streams) to eliminate database connection pool starvation.
+4. **Academic Management Service (Port 8082):** Master curricula, multi-track academic programs (Standard vs. Project-Based), terms (2 terms vs. 3 trimesters), course offerings, Theory/Practice session schedules, physical classrooms (`academic.classrooms`), co-teaching faculty assignments (`academic.section_lecturers`), and Four-Eyes gradebook workflows.
+5. **Course Registration Service (Port 8085):** **Dedicated high-concurrency enrollment engine.** Decoupled from `academic-service` to isolate flash crowds at 8:00 AM. Employs in-memory Redis atomic Lua scripts (`seat_reserve.lua`) for sub-2ms seat quota reservations and asynchronous message queue persistence (Redis Streams) to eliminate database connection pool starvation.
 6. **Student Affairs Service (Port 8083):** Administrative student petitions, certificate generation, military deferments, grade appeals, and tuition billing tracking.
 7. **Notification Service (Port 8084):** Asynchronous I/O-bound alert processing (in-app notifications and transactional SMTP emails).
 8. **In-Memory Cache & Message Buffer:** Redis 7.2 hosting atomic seat counters, student eligibility sets, pre-warmed catalog caches, and the write-behind stream buffer.
@@ -1203,7 +1201,7 @@ Responsibilities:
 Responsibilities:
 - Smart program-cohort catalog partitioning (`catalog:{term}:STANDARD` vs. `catalog:{term}:PROJECT_BASED`).
 - Cohort boundary enforcement (blocking Standard students from enrolling in Project-Based sections).
-- Sub-2ms atomic seat reservation via Redis Lua scripts (`dual_seat_reserve.lua`), simultaneously deducting Theory and child Practice lab quotas.
+- Sub-2ms atomic seat reservation via Redis Lua scripts (`seat_reserve.lua`), deducting section seat quota without row-lock contention.
 - Write-behind queue buffering via Redis Streams (`XADD enrollment_stream`).
 - Background consumer worker processing batch ACID inserts into `registration.enrollments` in PostgreSQL (`XREADGROUP` + `XACK`).
 - Conflict detection advisory warnings and personal schedule draft generation.
@@ -1267,9 +1265,13 @@ For example, after a student-affairs request is approved, the Student Affairs Se
 
 ### Normal authentication
 
-The proposed normal path is institutional Google OAuth, provided the team can configure an authorized OAuth client and define the accepted email domain(s). The Auth Service verifies the OAuth response and maps the verified identity to a Portal67 account.
+Portal67 operates strictly as a closed institutional portal with **no public self-registration**. All user accounts (Students, Lecturers, and Administrative Staff) are pre-provisioned by university administration.
 
-Do not assume that possession of an email address alone proves the user's role. Roles and scopes must come from Portal67's account/assignment records.
+Users authenticate through two supported pathways:
+1. **Institutional Identifier & Password:** Users log in using their assigned institutional identifier (Student ID `MSSV` for students, Staff ID `MSCB` / `MSGV` for faculty and administrative staff) and password via `POST /api/v1/auth/login`.
+2. **Institutional OAuth / SSO:** Users authenticate via university Single Sign-On (e.g., HCMUS Google Workspace / Central OIDC Identity Provider) via `POST /api/v1/auth/oauth`. The Auth Service verifies the OAuth token assertion and maps the verified identity to the pre-provisioned Portal67 account record.
+
+Do not assume that possession of an institutional account alone proves the user's role. Roles, program tracks, and administrative permissions are authoritatively retrieved from Portal67's database records.
 
 ### Demo authentication
 
@@ -1320,29 +1322,29 @@ sequenceDiagram
     participant Worker as Persistence Worker
     participant DB as PostgreSQL (Registration DB)
 
-    Student->>FE: Select Theory "CSC10002_01" + Practice "CSC10002_01A"
-    FE->>GW: POST /api/v1/registration/sections/register (theory_id, lab_id, Bearer JWT)
+    Student->>FE: Select Section "CSC10002_01" (Theory + Practice)
+    FE->>GW: POST /api/v1/registration/sections/register (section_id, Bearer JWT)
     GW->>RegSvc: Forward request with X-Request-ID (Rate Limit <= 3 req/s)
     
-    RegSvc->>Redis: EVALSHA dual_seat_reserve.lua (theory_key, lab_key, student_key, course_id, max_credits)
-    alt Any Section Full (seats <= 0)
-        Redis-->>RegSvc: Return 0 (SECTION_OR_LAB_FULL)
-        RegSvc-->>GW: HTTP 409 Conflict {"code": "SECTION_OR_LAB_FULL"} (Latency < 2ms, 0 DB locks)
+    RegSvc->>Redis: EVALSHA seat_reserve.lua (section_key, student_key, course_id, max_credits)
+    alt Section Full (seats <= 0)
+        Redis-->>RegSvc: Return 0 (SECTION_FULL)
+        RegSvc-->>GW: HTTP 409 Conflict {"code": "SECTION_FULL"} (Latency < 2ms, 0 DB locks)
         GW-->>FE: Render capacity reached error toast
     else Program Cohort Mismatch
         Redis-->>RegSvc: Return -1 (PROGRAM_COHORT_MISMATCH)
         RegSvc-->>GW: HTTP 403 Forbidden {"code": "PROGRAM_COHORT_MISMATCH"}
         GW-->>FE: Render track restriction warning
     else Seats Available and Policy Satisfied
-        Redis-->>RegSvc: Return 1 (Both Theory & Lab quotas atomically decremented)
-        RegSvc->>Queue: XADD enrollment_stream (student_id, theory_id, lab_id, timestamp)
+        Redis-->>RegSvc: Return 1 (Section seat quota atomically decremented)
+        RegSvc->>Queue: XADD enrollment_stream (student_id, section_id, timestamp)
         RegSvc-->>GW: HTTP 200 OK {"status": "CONFIRMED"} (Latency < 10ms)
-        GW-->>FE: Render registration success notification & timetable update
+        GW-->>FE: Render registration success notification & timetable update (both Theory & Practice scheduled)
 
         critical Asynchronous Write-Behind DB Persistence
             Worker->>Queue: XREADGROUP enrollment_stream (Batch size: 50)
-            Worker->>DB: INSERT INTO registration.enrollments (student_id, section_id, lab_section_id, status) VALUES (?, ?, ?, 'ACTIVE')
-            Worker->>DB: UPDATE academic.sections SET current_enrolled = current_enrolled + 1 WHERE id IN (?, ?)
+            Worker->>DB: INSERT INTO registration.enrollments (student_id, section_id, status) VALUES (?, ?, 'ACTIVE')
+            Worker->>DB: UPDATE academic.sections SET current_enrolled = current_enrolled + 1 WHERE id = ?
             Worker->>Queue: XACK enrollment_stream
         end
     end
@@ -1428,8 +1430,9 @@ These are illustrative Portal67 API endpoints, not existing HCMUS APIs.
 
 | Service | Endpoint | Purpose |
 |---|---|---|
-| Auth | `POST /api/v1/auth/google` | Exchange/verify OAuth result and establish Portal session |
-| Auth | `POST /api/v1/auth/demo-login` | Development/demo login only |
+| Auth | `POST /api/v1/auth/login` | Authenticate via institutional ID (MSSV/MSCB) and password |
+| Auth | `POST /api/v1/auth/oauth` | Exchange/verify institutional OAuth/SSO token assertion |
+| Auth | `POST /api/v1/auth/demo-login` | Development/demo login switcher only |
 | Auth | `GET /api/v1/auth/me` | Return current identity and permitted roles |
 | Academic | `GET /api/v1/academic/programs` | List degree tracks (Standard vs. Project-Based) |
 | Academic | `GET /api/v1/academic/terms` | List academic terms (2 terms for Standard, 3 trimesters for Đề án) |
@@ -1832,14 +1835,14 @@ This is a suggested structure. Avoid creating empty packages for every future fe
 
 **Context:** Peak enrollment opens at 8:00 AM, creating massive concurrent request spikes (flash crowds) that cause severe database lock contention and connection pool starvation if handled via monolithic relational transactions (`SELECT FOR UPDATE`).
 
-**Decision:** Extract Course Registration into a standalone microservice (`registration-service`, Port 8085) with isolated database schemas (`registration`) and horizontal scalability. Seat quota deduction is executed in-memory via Redis atomic Lua scripts (`dual_seat_reserve.lua`) in $< 2\text{ms}$. Confirmed seat reservations are pushed to Redis Streams and committed in batch transactions to PostgreSQL by background persistence workers.
+**Decision:** Extract Course Registration into a standalone microservice (`registration-service`, Port 8085) with isolated database schemas (`registration`) and horizontal scalability. Seat quota deduction is executed in-memory via Redis atomic Lua scripts (`seat_reserve.lua`) in $< 2\text{ms}$. Confirmed seat reservations are pushed to Redis Streams and committed in batch transactions to PostgreSQL by background persistence workers.
 
 **Consequences:**
 - Complete fault isolation: registration flash crowds cannot degrade core institutional operations (grading, transcript viewing, student affairs).
 - Zero over-subscription guaranteed by single-threaded in-memory atomic Lua scripts.
 - Eliminates relational database connection starvation during peak enrollment windows.
 
-## ADR-008: Multi-Track Academic Model (HCMUS Standard vs. Project-Based) and Theory-Practice Section Hierarchy
+## ADR-008: Multi-Track Academic Model (HCMUS Standard vs. Project-Based) and Integrated Theory-Practice Section Scheduling
 
 **Status:** Accepted
 
@@ -1848,7 +1851,7 @@ This is a suggested structure. Avoid creating empty packages for every future fe
 **Decision:**
 1. Model distinct degree tracks via `academic.programs` and `academic.semesters` with `program_type` segregation and term count (2 vs 3).
 2. Decouple physical classrooms into `academic.classrooms` (`room_code`, `building`, `campus` CS1/CS2, `room_capacity`, `room_type`) referenced via `section_schedules.classroom_id`.
-3. Model Theory-Practice section hierarchies via `academic.sections` with `section_type` (`THEORY` vs `PRACTICE`) and self-referencing `parent_section_id`.
+3. Model integrated Theory-Practice section schedules via `academic.section_schedules` with `session_type` (`THEORY` vs `PRACTICE`) linked to a unified section offering (`academic.sections`).
 4. Support co-teaching faculties and lab TAs via `academic.section_lecturers` ($N:M$).
 5. Enforce smart cohort catalog partitioning in Redis (`catalog:{term}:STANDARD` vs `catalog:{term}:PROJECT_BASED`) and hard barrier cross-enrollment restrictions.
 

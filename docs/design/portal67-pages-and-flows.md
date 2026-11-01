@@ -53,7 +53,7 @@ Entering a payment is maintaining a sample record, not initiating a money transf
 
 **Job:** enter the correct role workspace with a provided account. **Evidence:** F07, I4. **Components:** C01, C03, C11, C14.
 
-**Content order:** Portal67 wordmark; “Sign in”; a short course-prototype explanation; Email field; Password with Show/Hide; primary **Sign in**; “Need an account?” help explaining that demo accounts are provided by the project team. No public landing-page hero, registration form, social login, or fake SSO.
+**Content order:** Portal67 wordmark; “Sign in”; a short course-prototype explanation; Institutional Identifier (MSSV for students / MSCB for staff) or email field; Password with Show/Hide; primary **Sign in**; alternative **Sign in with Institutional OAuth (HCMUS SSO)** button; “Need an account?” help explaining that all accounts are pre-provisioned by university administration (no public self-registration). No public landing-page hero or open registration form.
 
 Labels remain visible after entry. Support password managers, paste, and Enter submission. Initial focus goes to email when appropriate; no keyboard trap. The prototype explanation says “Sample academic records. Not connected to the official HCMUS Portal.” Avoid showing credentials in this document or product UI.
 

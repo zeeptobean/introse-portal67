@@ -100,7 +100,7 @@ The system enforces clear boundaries across 4 user actor groups with distinct pr
 
 | Actor | Classification | Core Roles & Operational Responsibilities | Interaction Channel | Relevant PA2 Requirements |
 | :--- | :--- | :--- | :--- | :--- |
-| **Student** | End User (Internal) | <ul><li>Browse and register/drop course sections during open registration windows according to program track (**Standard / Chuẩn** with 2 semesters/yr vs. **Project-Based / Đề án** with 3 semesters/yr).</li><li>Execute paired Theory (`THEORY`) and Practical (`PRACTICE`) class selection for courses requiring laboratory components.</li><li>Inspect weekly visual schedule grid, examination schedules, seat numbers, physical classrooms, and campus locations (CS1 Nguyễn Văn Cừ / CS2 Linh Trung).</li><li>View semester and cumulative GPA; simulate prospective grades with the What-If GPA Forecaster.</li><li>Submit formal administrative petitions: cross-enrollment requests, enrollment verification, military deferment, grade appeals, and exit certifications.</li><li>View itemized tuition statements differentiated by program track and execute payments via dynamic VietQR codes.</li></ul> | Web Browser (Desktop / Tablet / Mobile) | `FR-STU-01`, `FR-STU-02`, `FR-REG-01` $\rightarrow$ `06`, `FR-TT-01`, `FR-GRD-01`, `FR-GRD-02`, `FR-REQ-01`, `FR-REQ-03`, `FR-REQ-04` |
+| **Student** | End User (Internal) | <ul><li>Browse and register/drop course sections during open registration windows according to program track (**Standard / Chuẩn** with 2 semesters/yr vs. **Project-Based / Đề án** with 3 semesters/yr).</li><li>Enroll in course sections with integrated Theory and Practice schedules for courses requiring laboratory components.</li><li>Inspect weekly visual schedule grid, examination schedules, seat numbers, physical classrooms, and campus locations (CS1 Nguyễn Văn Cừ / CS2 Linh Trung).</li><li>View semester and cumulative GPA; simulate prospective grades with the What-If GPA Forecaster.</li><li>Submit formal administrative petitions: cross-enrollment requests, enrollment verification, military deferment, grade appeals, and exit certifications.</li><li>View itemized tuition statements differentiated by program track and execute payments via dynamic VietQR codes.</li></ul> | Web Browser (Desktop / Tablet / Mobile) | `FR-STU-01`, `FR-STU-02`, `FR-REG-01` $\rightarrow$ `06`, `FR-TT-01`, `FR-GRD-01`, `FR-GRD-02`, `FR-REQ-01`, `FR-REQ-03`, `FR-REQ-04` |
 | **Lecturer / TA** | End User (Faculty) | <ul><li>Inspect assigned teaching timetables and enrolled student rosters for assigned Theory and Practical sessions.</li><li>Support co-teaching configurations ($\ge 1$ lecturer/TA per section) with primary and assistant roles.</li><li>Input and edit continuous assessment components (attendance, midterm, laboratory, coursework, final exam).</li><li>Lock and submit finalized section grade sheets to Academic Affairs (`Draft` $\rightarrow$ `Submitted`).</li><li>Export attendance rosters and certified score sheets for departmental records.</li></ul> | Web Browser (Desktop / Laptop) | `FR-TT-01`, `FR-TT-02`, `FR-GRD-03`, `FR-GRD-04` |
 | **Academic & Administrative Staff** (`ADM` / Giáo vụ) | Domain Administrator & Officer | <ul><li>**Phòng Đào tạo (PĐT):** Configures Standard academic terms (2 semesters), offerings, registration windows, and CS2 room allocations (`FR-ADM-01`, `FR-ADM-02`).</li><li>**Văn phòng các Chương trình Đào tạo theo Đề án (VP Đề án - CTĐA / OEP):** Configures Project-Based academic terms (3 semesters including HK3), high-quality offerings, CS1 lab room allocations, and adjudicates cross-registration petitions.</li><li>Review, approve, and officially publish submitted grade sheets (`Submitted` $\rightarrow$ `Finalized`) and adjudicate grade rectification requests (`FR-GRD-05`, `FR-GRD-06`).</li><li>Process incoming student administrative petitions (enrollment verification, military deferment, tuition extension, certifications) (`FR-REQ-02`, `FR-REQ-03`).</li><li>Track tuition payment status and simulated billing reconciliation (`FR-ADM-03`).</li></ul> | Web Browser (Administrative Console) | `FR-ADM-01`, `FR-ADM-02`, `FR-ADM-03`, `FR-GRD-05`, `FR-GRD-06`, `FR-REQ-02`, `FR-REQ-03` |
 | **System Administrator** | Technical Operator | <ul><li>Manage user accounts and credentials; configure Demo Persona Switcher accounts for evaluation.</li><li>Maintain Role-Based Access Control (RBAC) policies and security parameters.</li><li>Monitor immutable system audit logs to detect unauthorized or anomalous access.</li><li>Configure external connection parameters (SMTP relay, OIDC IdP, Payment Gateway, MinIO).</li></ul> | Web Browser (Dedicated Admin Console) | `FR-AUTH-01`, `FR-AUTH-02`, `FR-AUTH-03` |
@@ -320,13 +320,32 @@ classDiagram
 
     class UserAccount {
         +UUID id
+        +String identifier
         +String email
-        +String passwordHash
         +Role role
         +Boolean isActive
         +DateTime createdAt
+    }
+
+    class PasswordCredential {
+        +UUID accountId
+        +String passwordHash
+        +DateTime updatedAt
+        +Int failedAttempts
         +verifyPassword(String plain) Boolean
     }
+
+    class OAuthIdentity {
+        +UUID id
+        +UUID accountId
+        +String provider
+        +String providerUserId
+        +String providerEmail
+        +DateTime linkedAt
+    }
+
+    UserAccount "1" -- "0..1" PasswordCredential : has
+    UserAccount "1" -- "many" OAuthIdentity : links
 
     class AcademicProgram {
         +UUID id
@@ -413,6 +432,7 @@ classDiagram
         +UUID id
         +UUID sectionId
         +UUID classroomId
+        +String sessionType
         +Int dayOfWeek
         +Int startPeriod
         +Int endPeriod
@@ -423,7 +443,6 @@ classDiagram
         +UUID id
         +UUID studentId
         +UUID sectionId
-        +UUID labSectionId
         +EnrollmentStatus status
         +DateTime registeredAt
         +drop() Void
@@ -542,13 +561,13 @@ stateDiagram-v2
 
 ### 2.2.3. Grade Appeal & Score Rectification State Machine (`FR-REQ-04`, `FR-GRD-06`)
 
-While a section grade sheet remains immutable once transitioned to `Finalized` (`DR-GRD-05`), individual students may lodge formal grade review requests (`Phúc khảo` under `FR-REQ-04`) strictly within the statutory 7-calendar-day window (`DR-REQ-03`). The state machine below specifies the exception lifecycle governing individual grade appeals and audit-logged grade rectifications:
+While a section grade sheet remains immutable once transitioned to `Finalized` (`DR-GRD-05`), individual students may lodge formal grade review requests (`Phúc khảo` under `FR-REQ-04`) strictly within the appeal window configured and opened by Academic Affairs staff (`DR-REQ-03`). The state machine below specifies the exception lifecycle governing individual grade appeals and audit-logged grade rectifications:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> AppealSubmitted : Student files grade appeal online within 7 days of grade finalization
+    [*] --> AppealSubmitted : Student files grade appeal online within active appeal window
     
-    AppealSubmitted --> Rejected_StatutoryExpired : Filed after 7-day statutory deadline (Auto-rejected)
+    AppealSubmitted --> Rejected_WindowClosed : Filed after appeal deadline set by Academic Affairs (Rejected)
     AppealSubmitted --> UnderInitialReview : Academic & Administrative Staff validates petition completeness
     
     UnderInitialReview --> ForwardedToExaminer : Staff assigns exam paper to Department / Re-evaluation Committee
@@ -574,7 +593,7 @@ stateDiagram-v2
     RectificationApproved --> AppealCompleted : Student notified & updated grade published
     AppealClosed_Maintained --> [*]
     AppealCompleted --> [*]
-    Rejected_StatutoryExpired --> [*]
+    Rejected_WindowClosed --> [*]
     RectificationRejected --> AppealClosed_Maintained
 ```
 
@@ -604,30 +623,30 @@ sequenceDiagram
     participant Worker as Persistence Worker
     participant DB as PostgreSQL (Registration DB)
 
-    Student->>Browser: Select "CSC10002_01 (Theory)" + "CSC10002_01A (Lab)"
-    Browser->>Gateway: POST /api/registration/sections/register (theory_id, lab_id, Bearer JWT)
+    Student->>Browser: Select Section "CSC10002_01" (Theory + Practice)
+    Browser->>Gateway: POST /api/registration/sections/register (section_id, Bearer JWT)
     Gateway->>RegSvc: Forward request with X-Request-ID (Rate Limit <= 3 req/s)
     
-    RegSvc->>Redis: EVALSHA dual_seat_reserve.lua (theory_key, lab_key, student_key, course_id, max_credits)
-    alt Any Section Full (seats <= 0)
+    RegSvc->>Redis: EVALSHA seat_reserve.lua (section_key, student_key, course_id, max_credits)
+    alt Section Full (seats <= 0)
         Redis-->>RegSvc: Return 0 (SECTION_FULL)
-        RegSvc-->>Gateway: HTTP 409 Conflict {"code": "SECTION_OR_LAB_FULL"} (Latency < 2ms, 0 DB locks)
-        Gateway-->>Browser: Render "Selected Theory or Lab capacity reached" error toast
+        RegSvc-->>Gateway: HTTP 409 Conflict {"code": "SECTION_FULL"} (Latency < 2ms, 0 DB locks)
+        Gateway-->>Browser: Render "Selected Section capacity reached" error toast
     else Program Cohort Mismatch or Duplicate Course
         Redis-->>RegSvc: Return -1 (POLICY_VIOLATION)
         RegSvc-->>Gateway: HTTP 403 Forbidden {"code": "PROGRAM_COHORT_MISMATCH"}
         Gateway-->>Browser: Render warning notification ("Course track not eligible for student cohort")
     else Seats Available & All Policies Satisfied
-        Redis-->>RegSvc: Return 1 (Both Theory & Lab quotas atomically decremented)
-        RegSvc->>Queue: XADD enrollment_stream (student_id, theory_id, lab_id, timestamp)
+        Redis-->>RegSvc: Return 1 (Section seat quota atomically decremented)
+        RegSvc->>Queue: XADD enrollment_stream (student_id, section_id, timestamp)
         RegSvc-->>Gateway: HTTP 200 OK {"status": "CONFIRMED", "message": "Successfully enrolled"} (Latency < 10ms)
         Gateway-->>Browser: JSON Payload
-        Browser-->>Student: Update Timetable grid & display success notification
+        Browser-->>Student: Update Timetable grid & display success notification (both Theory & Practice scheduled)
 
         critical Asynchronous Write-Behind DB Persistence
             Worker->>Queue: XREADGROUP enrollment_stream (Batch size: 50)
-            Worker->>DB: INSERT INTO registration.enrollments (student_id, section_id, lab_section_id, status) VALUES (?, ?, ?, 'ACTIVE')
-            Worker->>DB: UPDATE academic.sections SET current_enrolled = current_enrolled + 1 WHERE id IN (?, ?)
+            Worker->>DB: INSERT INTO registration.enrollments (student_id, section_id, status) VALUES (?, ?, 'ACTIVE')
+            Worker->>DB: UPDATE academic.sections SET current_enrolled = current_enrolled + 1 WHERE id = ?
             Worker->>Queue: XACK enrollment_stream
         end
     end
@@ -647,6 +666,34 @@ import (
 	"time"
 	"github.com/google/uuid"
 )
+
+// Account models the core user identity pre-provisioned by university administration.
+type Account struct {
+	ID         uuid.UUID `json:"id"`
+	Identifier string    `json:"identifier"` // MSSV or MSCB
+	Email      string    `json:"email"`      // Institutional email
+	Role       string    `json:"role"`       // "STUDENT" | "LECTURER" | "STAFF" | "ADMIN"
+	IsActive   bool      `json:"is_active"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// PasswordCredential stores cryptographic password hash for local credential logins.
+type PasswordCredential struct {
+	AccountID      uuid.UUID `json:"account_id"`
+	PasswordHash   string    `json:"-"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	FailedAttempts int       `json:"failed_attempts"`
+}
+
+// OAuthIdentity links external institutional Single Sign-On (e.g. Google OIDC) to an Account.
+type OAuthIdentity struct {
+	ID             uuid.UUID `json:"id"`
+	AccountID      uuid.UUID `json:"account_id"`
+	Provider       string    `json:"provider"`         // "GOOGLE" | "VNU_SSO"
+	ProviderUserID string    `json:"provider_user_id"` // Google sub claim
+	ProviderEmail  string    `json:"provider_email"`
+	LinkedAt       time.Time `json:"linked_at"`
+}
 
 // AcademicProgram models Standard (Đại trà) vs Project-Based (Đề án / CLC / APCS / VP) tracks.
 type AcademicProgram struct {
@@ -679,18 +726,16 @@ type Classroom struct {
 	RoomType     string    `json:"room_type"`     // "THEORY" | "COMPUTER_LAB" | "HALL"
 }
 
-// Section models Course Offerings split strictly into Theory or Practice sub-classes.
+// Section models a course offering (lớp học phần) encapsulating Theory and integrated Practice sessions.
 type Section struct {
-	ID                       uuid.UUID  `json:"id"`
-	CourseID                 uuid.UUID  `json:"course_id"`
-	SemesterID               uuid.UUID  `json:"semester_id"`
-	SectionCode              string     `json:"section_code"` // e.g. "CSC10002_01" or "CSC10002_01A"
-	SectionType              string     `json:"section_type"` // "THEORY" | "PRACTICE"
-	ParentSectionID          *uuid.UUID `json:"parent_section_id,omitempty"` // Trỏ về lớp Theory cha nếu là Practice
-	MaxCapacity              int        `json:"max_capacity"`
-	CurrentEnrolled          int        `json:"current_enrolled"`
-	TargetProgramType        string     `json:"target_program_type"` // "STANDARD" | "PROJECT_BASED"
-	IsCrossEnrollmentAllowed bool       `json:"is_cross_enrollment_allowed"`
+	ID                       uuid.UUID `json:"id"`
+	CourseID                 uuid.UUID `json:"course_id"`
+	SemesterID               uuid.UUID `json:"semester_id"`
+	SectionCode              string    `json:"section_code"` // e.g. "CSC10002_01"
+	MaxCapacity              int       `json:"max_capacity"`
+	CurrentEnrolled          int       `json:"current_enrolled"`
+	TargetProgramType        string    `json:"target_program_type"` // "STANDARD" | "PROJECT_BASED"
+	IsCrossEnrollmentAllowed bool      `json:"is_cross_enrollment_allowed"`
 }
 
 // SectionLecturer models N:M co-teaching & TA relationships on sections.
@@ -782,6 +827,8 @@ type GradebookService interface {
 
 ```mermaid
 erDiagram
+    ACCOUNTS ||--o| PASSWORDS : has
+    ACCOUNTS ||--o{ OAUTH_IDENTITIES : links
     ACCOUNTS ||--o| STUDENTS : identifies
     ACCOUNTS ||--o| LECTURERS : identifies
     
@@ -790,7 +837,6 @@ erDiagram
     SEMESTERS ||--o{ SECTIONS : offers_in
     COURSES ||--o{ SECTIONS : defines
     
-    SECTIONS ||--o{ SECTIONS : contains_practice_labs
     SECTIONS ||--o{ SECTION_LECTURERS : assigns
     LECTURERS ||--o{ SECTION_LECTURERS : teaches
     
@@ -798,8 +844,7 @@ erDiagram
     CLASSROOMS ||--o{ SECTION_SCHEDULES : accommodates
     
     STUDENTS ||--o{ ENROLLMENTS : registers
-    SECTIONS ||--o{ ENROLLMENTS : registers_theory
-    SECTIONS ||--o{ ENROLLMENTS : registers_practice
+    SECTIONS ||--o{ ENROLLMENTS : enrolls
     
     SECTIONS ||--|| GRADE_SHEETS : evaluates
     GRADE_SHEETS ||--o{ GRADE_COMPONENTS : defines
@@ -839,11 +884,27 @@ erDiagram
 
     ACCOUNTS {
         uuid id PK
+        varchar identifier UK
         varchar email UK
-        varchar password_hash
         varchar role
         boolean is_active
         timestamp created_at
+    }
+
+    PASSWORDS {
+        uuid account_id PK, FK
+        varchar password_hash
+        timestamp updated_at
+        integer failed_attempts
+    }
+
+    OAUTH_IDENTITIES {
+        uuid id PK
+        uuid account_id FK
+        varchar provider
+        varchar provider_user_id UK
+        varchar provider_email
+        timestamp linked_at
     }
 
     STUDENTS {
@@ -876,8 +937,6 @@ erDiagram
         uuid course_id FK
         uuid semester_id FK
         varchar section_code
-        varchar section_type
-        uuid parent_section_id FK
         integer max_capacity
         integer current_enrolled
         varchar target_program_type
@@ -896,6 +955,7 @@ erDiagram
         uuid id PK
         uuid section_id FK
         uuid classroom_id FK
+        varchar session_type
         smallint day_of_week
         smallint start_period
         smallint end_period
@@ -905,7 +965,6 @@ erDiagram
         uuid id PK
         uuid student_id FK
         uuid section_id FK
-        uuid lab_section_id FK
         varchar status
         timestamp registered_at
     }
@@ -941,6 +1000,48 @@ erDiagram
 ---
 
 ## 3.2. Detailed Table Specifications & Integrity Constraints
+
+### Table: `auth.accounts`
+Stores pre-provisioned user identities (students, faculty, administrative staff) within the closed institutional portal.
+
+| Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| `id` | `UUID` | **No** | `gen_random_uuid()` | **PK** | Internal account identifier |
+| `identifier` | `VARCHAR(30)` | **No** | None | **UK** | Institutional ID (MSSV or MSCB) |
+| `email` | `VARCHAR(255)` | **No** | None | **UK** | Official institutional email |
+| `role` | `VARCHAR(20)` | **No** | None | `CHECK (role IN ('STUDENT', 'LECTURER', 'STAFF', 'ADMIN'))` | RBAC core system role |
+| `is_active` | `BOOLEAN` | **No** | `TRUE` | None | Account activation status |
+| `created_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Account creation timestamp |
+
+---
+
+### Table: `auth.passwords`
+Stores cryptographic password credentials isolated from core user profiles for local credential authentication.
+
+| Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| `account_id` | `UUID` | **No** | None | **PK, FK** $\rightarrow$ `auth.accounts(id)` ON DELETE CASCADE | Associated user account |
+| `password_hash` | `VARCHAR(255)`| **No** | None | None | Argon2id / bcrypt cryptographic digest |
+| `updated_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Last password update timestamp |
+| `failed_attempts`| `INT` | **No** | `0` | None | Consecutive failed login counter |
+
+---
+
+### Table: `auth.oauth_identities`
+Stores external institutional SSO / OAuth linkages, supporting multi-provider authentication without schema pollution.
+
+| Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| `id` | `UUID` | **No** | `gen_random_uuid()` | **PK** | Linkage record identifier |
+| `account_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `auth.accounts(id)` ON DELETE CASCADE | Linked user account |
+| `provider` | `VARCHAR(30)` | **No** | None | None | Identity provider (e.g., `'GOOGLE'`, `'VNU_SSO'`) |
+| `provider_user_id`| `VARCHAR(255)`| **No**| None | None | Unique provider subject ID (sub claim) |
+| `provider_email` | `VARCHAR(255)`| **No**| None | None | Verified email returned by OAuth provider |
+| `linked_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Timestamp when SSO identity was linked |
+
+*Constraint:* `UNIQUE (provider, provider_user_id)` prevents the same external SSO account from being claimed by multiple local accounts.
+
+---
 
 ### Table: `academic.programs`
 Stores distinct degree curriculum tracks, isolating Standard (Đại trà) from Project-Based (Đề án / CLC / APCS / VP).
@@ -988,23 +1089,20 @@ Stores physical and virtual classroom inventory decoupled from course sections, 
 ---
 
 ### Table: `academic.sections`
-Stores semester course offerings split strictly into Theory or Practice sub-classes with parent-child linkage.
+Stores semester course offerings (lớp học phần). Granular Theory and integrated Practice sessions are scheduled via `academic.section_schedules`.
 
 | Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
 | :--- | :--- | :---: | :--- | :--- | :--- |
 | `id` | `UUID` | **No** | `gen_random_uuid()` | **PK** | Unique section identifier |
 | `course_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.courses(id)` | Parent catalog course |
 | `semester_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.semesters(id)` | Offering academic term |
-| `section_code` | `VARCHAR(30)` | **No** | None | Unique per semester | e.g., `'CSC10002_01'` (LT) or `'CSC10002_01A'` (TH) |
-| `section_type` | `VARCHAR(15)` | **No** | `'THEORY'` | `CHECK (section_type IN ('THEORY', 'PRACTICE'))` | Class modality |
-| `parent_section_id`| `UUID` | Yes | `NULL` | **FK** $\rightarrow$ `academic.sections(id)` ON DELETE CASCADE | Parent Theory section (required for PRACTICE) |
+| `section_code` | `VARCHAR(30)` | **No** | None | Unique per semester | e.g., `'CSC10002_01'` |
 | `max_capacity` | `INT` | **No** | `40` | `CHECK (max_capacity > 0)` | Maximum class seating limit |
 | `current_enrolled` | `INT` | **No** | `0` | `CHECK (current_enrolled >= 0 AND current_enrolled <= max_capacity)` | Atomic cached enrolled counter |
 | `target_program_type`| `VARCHAR(20)`| **No** | `'STANDARD'` | `CHECK (target_program_type IN ('STANDARD', 'PROJECT_BASED'))` | Target track |
 | `is_cross_enrollment_allowed`| `BOOLEAN`| **No**| `FALSE` | None | Permits cross-track petition registration |
 
 *Constraints:*
-- `CONSTRAINT chk_section_hierarchy CHECK ((section_type = 'THEORY' AND parent_section_id IS NULL) OR (section_type = 'PRACTICE' AND parent_section_id IS NOT NULL))`
 - `UNIQUE (semester_id, section_code)` ensures unique section codes within a term.
 
 ---
@@ -1025,13 +1123,14 @@ Models N:M co-teaching faculties and lab teaching assistants (TAs) assigned to s
 ---
 
 ### Table: `academic.section_schedules`
-Stores granular weekly meeting sessions linked directly to physical classrooms.
+Stores granular weekly meeting sessions linked directly to physical classrooms, distinguishing Theory lectures and Practice labs.
 
 | Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
 | :--- | :--- | :---: | :--- | :--- | :--- |
 | `id` | `UUID` | **No** | `gen_random_uuid()` | **PK** | Schedule slot identifier |
 | `section_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.sections(id)` ON DELETE CASCADE | Parent section offering |
 | `classroom_id`| `UUID` | **No** | None | **FK** $\rightarrow$ `academic.classrooms(id)` | Physical classroom location |
+| `session_type`| `VARCHAR(15)`| **No** | `'THEORY'` | `CHECK (session_type IN ('THEORY', 'PRACTICE'))` | Schedule meeting modality |
 | `day_of_week` | `SMALLINT`| **No** | None | `CHECK (day_of_week BETWEEN 2 AND 8)` | 2 = Mon, 8 = Sun |
 | `start_period` | `SMALLINT`| **No** | None | `CHECK (start_period BETWEEN 1 AND 12)` | HCMUS Period slot (1–12) |
 | `end_period` | `SMALLINT`| **No** | None | `CHECK (end_period >= start_period)` | Ending period slot |
@@ -1041,14 +1140,13 @@ Stores granular weekly meeting sessions linked directly to physical classrooms.
 ---
 
 ### Table: `registration.enrollments`
-Stores verified student enrollments with paired Theory + Practice section linkage.
+Stores verified student enrollments for registered course sections (binding all scheduled sessions).
 
 | Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
 | :--- | :--- | :---: | :--- | :--- | :--- |
 | `id` | `UUID` | **No** | `gen_random_uuid()` | **PK** | Enrollment transaction identifier |
 | `student_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.students(id)` | Enrolled student identity |
-| `section_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.sections(id)` | Enrolled Theory / Standalone class |
-| `lab_section_id`| `UUID` | Yes | `NULL` | **FK** $\rightarrow$ `academic.sections(id)` | Paired Practical lab section (if required) |
+| `section_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.sections(id)` | Enrolled course section |
 | `status` | `VARCHAR(15)` | **No** | `'ACTIVE'` | `CHECK (status IN ('ACTIVE', 'DROPPED', 'AUDIT'))` | Current enrollment state |
 | `registered_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Initial seat reservation timestamp |
 | `queue_job_id` | `VARCHAR(64)` | Yes | `NULL` | None | Correlated Redis Stream message identifier |
@@ -1208,15 +1306,15 @@ flowchart TD
 ## 4.2. Key Screen Specifications
 
 ### 1. Course Registration Screen (`/student/registration`)
-- **Backend Interaction:** Interacts directly with `registration-service` via `/api/registration/sections` (fast read from pre-warmed Redis partition `catalog:{term}:{track}`) and `/api/registration/sections/register` (sub-10ms atomic Lua seat reservation across paired Theory + Practice keys).
+- **Backend Interaction:** Interacts directly with `registration-service` via `/api/registration/sections` (fast read from pre-warmed Redis partition `catalog:{term}:{track}`) and `/api/registration/sections/register` (sub-10ms atomic Lua seat reservation on section quota).
 - **Smart Program-Cohort Partitioning:**
   - **Standard Track Students (`STANDARD`):** Interface automatically defaults to active Standard terms (HK1 or HK2) and displays only classes with `target_program_type = 'STANDARD'`. Sections belonging to Project-Based programs are hidden by default. If viewed in general catalog inspection mode, they render disabled with a grey badge: *"Chỉ dành cho SV Đề án — VP Đề án quản lý"*.
   - **Project-Based Students (`PROJECT_BASED`):** Interface displays 3 official term selectors: **HK1, HK2, and HK3 (Summer Trimester)**. Defaults to Project-Based offerings with an optional tab: *"Đăng ký học chéo (Cross-Registration)"* showing Standard sections flagged with `is_cross_enrollment_allowed = TRUE` (triggers advisory modal regarding tuition settlement).
 - **Header:** Academic semester selector, active registration countdown timer, total enrolled credits counter vs. credit ceiling.
-- **Section Browser & Lab Accordion:**
+- **Section Browser & Session Details:**
   - Search bar with instantaneous debounce ($200\text{ms}$), filters for Department, Subject Code, Campus location (CS1 Nguyễn Văn Cừ vs. CS2 Linh Trung), and Delivery Modality.
-  - Interactive Table displaying Course Code, Title, Credits, and Theory Section details.
-  - **Theory-Practice Pairing:** For courses with `has_lab = TRUE`, selecting a Theory section expands an accordion displaying available child Practical lab groups (e.g., `CSC10002_01A` on Wed Period 7–9 in `Lab_I41`, `CSC10002_01B` on Fri Period 1–3 in `Lab_I42`) with distinct seat capacity meters (Green $< 80\%$, Amber $80\% - 99\%$, Red $100\%$).
+  - Interactive Table displaying Course Code, Title, Credits, Section Code, and real-time seat availability meter (Green $< 80\%$, Amber $80\% - 99\%$, Red $100\%$).
+  - **Integrated Theory-Practice Scheduling:** For courses with `has_lab = TRUE`, each section offering clearly displays both its scheduled Theory meeting periods (e.g., Mon 07:30–10:00 in Hall C32) and Practice lab meeting periods (e.g., Wed 13:00–16:30 in Lab_I41). Selecting the section automatically reserves the section seat and schedules both sessions into the student's personal timetable.
 - **Conflict Highlight:** Overlapping time slots render with an amber border and an advisory tooltip: *"Lịch học trùng với học phần [Mã lớp] — Quy chế nhà trường khuyến nghị không trùng giờ nhưng không chặn đăng ký."*
 
 ### 2. Lecturer Grade Entry Sheet (`/lecturer/grades/[sectionId]`)
@@ -1248,7 +1346,7 @@ This matrix proves that every Functional Requirement specified in **PA2** is ful
 
 | PA2 Requirement ID | PA2 Requirement Name | PA3 Microservice | API Route / Contract | Target Database Table | Class / Domain Interface |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`FR-AUTH-01`** | User Authentication | `auth-service` | `POST /api/auth/login` | `auth.accounts` | `UserAccount.verifyPassword()` |
+| **`FR-AUTH-01`** | User Authentication | `auth-service` | `POST /api/auth/login`, `POST /api/auth/oauth/callback` | `auth.accounts` | `UserAccount.verifyPassword()`, `OAuthHandler` |
 | **`FR-AUTH-03`** | Role-Based Access Control | `gateway` + all | HTTP Authorization Header | `auth.roles` | `JWTAuthMiddleware` |
 | **`FR-REG-01`** | Browse Course Offerings | `registration-service`| `GET /api/registration/sections` | Pre-warmed Redis Cache / `academic.sections`, `academic.programs`, `academic.classrooms` | `RegistrationService` |
 | **`FR-REG-02`** | Section Enrollment (Add) | `registration-service`| `POST /api/registration/sections/register` | `registration.enrollments`, `academic.section_lecturers` | `RegistrationService.RegisterSection()` |
@@ -1275,7 +1373,7 @@ The following design decisions record deliberate refinements between the initial
    - *PA3 Design Decision:* Formally established in `ADR-004` that time overlaps are treated strictly as **advisory non-blocking warnings**. This aligns with actual university practice where students may register overlapping classes under academic advisor permission.
 2. **Refinement `CHG-02` — Concurrency Protection on Seat Allocation (`FR-REG-02`):**
    - *PA2 Baseline:* High-level requirement specified that classes must not exceed maximum capacity.
-   - *PA3 Design Decision:* Selected an in-memory Redis atomic Lua script engine (`check_and_decr.lua` / `dual_seat_reserve.lua`) for sub-2ms seat quota reservations, coupled with an asynchronous write-behind message queue (Redis Streams) committing batch transactions into `registration.enrollments` in PostgreSQL. This eliminates database server lock contention under peak registration traffic while guaranteeing zero over-subscriptions.
+   - *PA3 Design Decision:* Selected an in-memory Redis atomic Lua script engine (`check_and_decr.lua` / `seat_reserve.lua`) for sub-2ms seat quota reservations, coupled with an asynchronous write-behind message queue (Redis Streams) committing batch transactions into `registration.enrollments` in PostgreSQL. This eliminates database server lock contention under peak registration traffic while guaranteeing zero over-subscriptions.
 3. **Refinement `CHG-03` — Separation of Duties Enforcement in Grade Workflow (`FR-GRD-04` & `FR-GRD-05`):**
    - *PA2 Baseline:* Lecturers submit grades and students view them.
    - *PA3 Design Decision:* Introduced an explicit two-phase approval workflow: Lecturers only transition sheets to `Submitted`. A separate administrative role (`Academic Affairs`) must review and transition to `Finalized` before official grades are calculated into student cumulative GPAs.
@@ -1288,11 +1386,11 @@ The following design decisions record deliberate refinements between the initial
 6. **Refinement `CHG-06` — Decoupling Course Registration into Dedicated Microservice (`registration-service`):**
    - *PA2 Baseline:* Registration initially assumed to run inside the monolithic academic backend.
    - *PA3 Design Decision:* Formally established in `ADR-007` to decouple Course Registration into a standalone microservice (`registration-service` on Port 8085) with isolated database schemas (`registration`) and independent horizontal scalability. This completely isolates flash-crowd registration spikes at 8:00 AM from core institutional operations (grading, transcript inspection, document petitions), ensuring the portal web interface and other academic functions remain 100% operational and immune to cascade failures.
-7. **Refinement `CHG-07` — HCMUS Multi-Track Academic Model Adaptation & Theory-Practice Section Hierarchy (`FR-REG-01`, `FR-REG-02`, `FR-TT-01`):**
+7. **Refinement `CHG-07` — HCMUS Multi-Track Academic Model Adaptation & Integrated Theory-Practice Section Scheduling (`FR-REG-01`, `FR-REG-02`, `FR-TT-01`):**
    - *PA2 Baseline:* Assumed homogeneous semester structure, single-lecturer assignment, and monolithic course offerings.
    - *PA3 Design Decision:* Formally established in `ADR-008` to realize authentic HCMUS academic operations:
      a) **Segregated Term Cycles:** Standard track (Đại trà - 2 semesters/yr, managed by Phòng Đào tạo) vs. Project-Based track (Đề án / CLC / APCS / VP - 3 semesters/yr including HK3 summer trimester, managed by VP Đề án - CTĐA).
-     b) **Theory-Practice Section Hierarchy:** Decomposed course offerings into `THEORY` (lecture hall) and child `PRACTICE` (computer lab) sub-classes with parent-child linkage, resolving laboratory seat quota constraints and timetable collisions.
+     b) **Integrated Theory-Practice Section Scheduling:** Modeled integrated Theory and Practice meeting periods within a unified course section offering, automatically scheduling both meeting slots into student timetables upon section selection with single-action atomic quota reservation.
      c) **Physical Facility Normalization:** Decoupled classroom facilities (`academic.classrooms`) with campus identification (CS1 Nguyễn Văn Cừ vs. CS2 Linh Trung), achieving strict Boyce-Codd Normal Form (BCNF).
      d) **Multi-Lecturer Co-Teaching:** Introduced `academic.section_lecturers` ($N:M$) supporting co-professors and lab teaching assistants (TAs).
      e) **Cohort Registration Boundaries:** Enforced smart default catalog partitioning in Redis (`catalog:{term}:STANDARD` vs `catalog:{term}:PROJECT_BASED`) and hard barrier cross-enrollment restrictions to eliminate over-subscription and billing disparity.
