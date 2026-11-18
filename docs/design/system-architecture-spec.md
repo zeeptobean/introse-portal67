@@ -145,13 +145,14 @@ graph TB
 
 ## 4. Key Architectural Decisions (ADRs)
 
-### 4.1. Authentication Architecture: Hybrid Authentication Strategy
+### 4.1. Authentication Architecture: Multi-Channel Authentication Strategy
 * **Context:** The team evaluated Google OAuth 2.0 vs. traditional credential-based login.
 * **Evaluation:**
   * **Google OAuth 2.0:** Highly secure and authentic to the HCMUS ecosystem (restricting logins to institutional domains). No password hashing or recovery workflows needed.
   * **Evaluation / Defense Risk:** Faculty reviewers, Teaching Assistants (TAs), and grading evaluators often do not possess pre-authorized institutional Google accounts or need to switch rapidly between roles (Standard Student, CLC Student, Teacher, Admin) during evaluation sessions.
-* **Architectural Decision: Hybrid Authentication (Google OAuth + 1-Click Demo Bar)**
-  1. **Primary Interface:** "Sign in with University Google Account" button for regular user authentication.
+* **Architectural Decision: Multi-Channel Authentication (Institutional ID + Password OR Google OAuth + Demo Switcher)**
+  0. **No Public Self-Registration:** Accounts are pre-provisioned by university administration; public sign-up is omitted.
+  1. **Primary Interface:** Institutional Identifier (MSSV / MSCB) and Password login form, alongside "Sign in with University Google Account (SSO)".
   2. **Evaluation Toolbar (1-Click Demo Bar):** Positioned discreetly in the footer of the login screen, allowing instant token generation for:
      * `[Demo: Standard Student]`
      * `[Demo: High-Quality (CLC) Student]`
