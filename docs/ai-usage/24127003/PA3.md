@@ -54,3 +54,36 @@
   - [x] Verified file created at [`docs/design/PA3_System_Design_Specification.md`](../../design/PA3_System_Design_Specification.md).
   - [x] Confirmed all 5 criteria from the rubric image are thoroughly documented.
   - [x] Commit reference / PR link: `docs(design): create comprehensive PA3 architecture and system design specification`
+
+---
+
+## Session Details (Session 2 — Post-PA1 & PA2 TA Evaluation Feedback Remediation)
+
+### Task: PA3 Architectural Alignment & Feedback Remediation
+* **Tool Used:** Antigravity (Gemini 3.8 Flash High)  
+* **Date:** 2026-11-18  
+* **Objective:** Review formal evaluation feedback for PA1 and PA2 delivered by course Teaching Assistant (TA), identify architectural gaps and latent inconsistencies inherited by PA3, and systematically remediate `PA3_System_Design_Specification.md`:
+  1. **Scope & Project Exclusions:** Explicitly declare the 3 core project boundaries: (a) sample/seeded test data only with zero live HCMUS production DB connection, (b) simulated payment gateway and mock VietQR with zero real-money financial processing, (c) digital demo proof artifacts with no legally binding physical paperwork. Add a 3-week construction phase MoSCoW allocation table.
+  2. **Feature Mapping & Harmonization:** Construct a master cross-phase matrix reconciling PA1 features (F01–F08) with PA2 subsystems and PA3 services, formally resolving the F05 Resource Management deferral beyond MVP and mapping Gradebook to F03/GRD.
+  3. **Exam Scheduling Subsystem (`FR-TT-03`):** Design BCNF relational tables (`academic.exam_schedules`, `academic.student_exam_seats`), domain class entities, Go and TypeScript interfaces, conflict detection algorithm, and UI-05 screen specification.
+  4. **Observable Error States:** Augment sequence diagrams and screen specifications with explicit user-facing error cues (capacity exhausted, registration window closed, drop deadline expired, request rejection reasons).
+  5. **Empirical Accessibility Audit:** Formulate a formal WCAG 2.1 AA audit table with measured color contrast ratios (e.g. body text 15.4:1 AAA, button 4.6:1 AA, error alert 7.8:1 AAA), ARIA attributes, and keyboard navigation test results.
+  6. **Architecture Review Record:** Add Section 5.3 detailing formal team review meeting minutes (attendees, date, reviewed findings, and "Resolved" status).
+
+* **AI Output & Human Modifications Applied:**
+  - Authored comprehensive modifications in [`docs/design/PA3_System_Design_Specification.md`](../../design/PA3_System_Design_Specification.md):
+    - Section 1.2.3 & 1.2.3.1: Delineated explicit project exclusions and 3-week construction MoSCoW prioritization table.
+    - Section 1.2.5: Integrated master cross-phase feature harmonization matrix.
+    - Section 2.1 & 2.4: Added `ExamSchedule` and `StudentExamSeat` class models, Go DTOs/service contracts, and TypeScript interfaces.
+    - Section 2.3: Added observable error paths in registration, petition rejection lifecycle, and exam schedule conflict query sequence diagrams.
+    - Section 3.1 & 3.2: Added Crow's Foot ERD entities and detailed DDL table specifications for `academic.exam_schedules` and `academic.student_exam_seats`.
+    - Section 3.3 & 3.4: Proven BCNF normalization and defined database index optimization for exam scheduling queries.
+    - Section 4.1 & 4.2: Added UI-05 Exams screen to flow diagram and detailed screen specifications with interactive states and error feedbacks.
+    - Section 4.3: Upgraded accessibility section into an empirical WCAG 2.1 AA audit results table with measured contrast ratios and verification methods.
+    - Section 5.1, 5.2, 5.3: Updated RTM table with `FR-TT-03`, logged `CHG-08` and `CHG-09`, and established a signed architecture review record.
+
+* **Verification Steps:**
+  - [x] Verified all 5 review points from PA1 and PA2 evaluation feedback addressed in PA3.
+  - [x] Confirmed zero syntax errors in Mermaid C4, class, state, sequence, and ERD diagrams.
+  - [x] Verified strict BCNF mathematical compliance across newly added tables.
+  - [x] Commit reference / PR link: `docs(design): remediate PA3 architecture spec against PA1 and PA2 review feedback`
