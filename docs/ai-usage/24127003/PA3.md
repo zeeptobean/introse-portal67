@@ -87,3 +87,31 @@
   - [x] Confirmed zero syntax errors in Mermaid C4, class, state, sequence, and ERD diagrams.
   - [x] Verified strict BCNF mathematical compliance across newly added tables.
   - [x] Commit reference / PR link: `docs(design): remediate PA3 architecture spec against PA1 and PA2 review feedback`
+
+---
+
+## Session Details (Session 3 — Domain-Driven Examination Data Model Refinement)
+
+### Task: HCMUS Examination Logistics Domain Alignment
+* **Tool Used:** Antigravity (Gemini 3.8 Flash High)  
+* **Date:** 2026-11-20  
+* **Objective:** Refine the examination scheduling data design in `PA3_System_Design_Specification.md` based on authentic operational feedback regarding HCMUS examination logistics:
+  1. **Dynamic Seating by Student ID (MSSV):** At the university, examination seating is not assigned as static pre-calculated seat numbers (`seat_number`). Instead, students are arranged inside the examination room dynamically by the invigilators in sequential order of their Student IDs (MSSV) on the exam roster. Therefore, remove `seat_number` and replace `academic.student_exam_seats` with `academic.student_exams`.
+  2. **Multi-Proctor Support per Exam Room:** Large classrooms and standard exam rooms require $\ge 2$ invigilators (Cán bộ coi thi 1, Cán bộ coi thi 2). Replace single `proctor_lecturer_id` from `academic.exam_schedules` with a normalized $N:M$ junction table `academic.exam_proctors` (composite key `{exam_schedule_id, lecturer_id}`).
+  3. **Removal of Exam Format Flag:** Remove `exam_format` from `academic.exam_schedules`, Go DTOs, TypeScript interfaces, and UI screen specs as format is governed at the course syllabus / curriculum level rather than individual exam sittings.
+
+* **AI Output & Human Modifications Applied:**
+  - **Section 2.1 (Domain Class Diagram):** Refactored `ExamSchedule` (removed `proctorLecturerId` and `examFormat`), added `ExamProctor` class entity, and replaced `StudentExamSeat` with `StudentExam` (removed `seatNumber`). Updated multiplicities ($ExamSchedule \xrightarrow{1..*} ExamProctor \xrightarrow{1} Lecturer$).
+  - **Section 2.3.3 (Exam Schedule Retrieval Sequence Diagram):** Updated SQL query and return payloads to join `student_exams` and aggregate proctor names from `exam_proctors` and `lecturers`.
+  - **Section 2.4 (Component & Interface Specifications):** Updated Go models (`ExamSchedule`, `ExamProctor`, `StudentExam`, `ExamScheduleDTO`) and TypeScript interface `ExamScheduleItem` (`proctors: string[]`).
+  - **Section 3.1 & 3.2 (Relational ERD & DDL Table Specifications):** Added `academic.exam_proctors` table DDL with foreign keys to `academic.exam_schedules` and `academic.lecturers`; replaced `academic.student_exam_seats` with `academic.student_exams`; removed `proctor_lecturer_id` and `exam_format` from `academic.exam_schedules`.
+  - **Section 3.3 (BCNF Normalization Proof):** Documented strict BCNF proof for `academic.exam_proctors` ($N:M$ relation where determinant `{exam_schedule_id, lecturer_id}` is candidate key) and `academic.student_exams`.
+  - **Section 3.4 (Indexing Strategy):** Updated Index 8 to `idx_student_exams_student` on `academic.student_exams` and added Index 10 `idx_exam_proctors_lecturer` on `academic.exam_proctors (lecturer_id, exam_schedule_id)`.
+  - **Section 4.2.3 (UI-05 Screen Specification):** Updated exam grid layout to display assigned proctors (`Cán bộ coi thi`) and user advisory noting dynamic MSSV seating; removed `Hình thức thi` and `Số báo danh (SBD)`.
+  - **Section 5 (RTM, Change Log & Review Record):** Updated `FR-TT-03` target tables, `CHG-08`, and `REV-03` to reflect `academic.exam_proctors` and `academic.student_exams`.
+
+* **Verification Steps:**
+  - [x] Verified zero occurrences of `seat_number`, `exam_format`, `proctor_lecturer_id`, and `student_exam_seats` remaining in specification.
+  - [x] Verified Mermaid diagram syntax for class diagram, sequence diagram, and ERD.
+  - [x] Confirmed strict BCNF normalization across all updated database tables.
+  - [x] Commit reference / PR link: `docs(design): refine exam data model to support multi-proctor and dynamic seating`

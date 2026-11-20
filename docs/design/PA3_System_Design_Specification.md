@@ -100,9 +100,9 @@ The system enforces clear boundaries across 4 user actor groups with distinct pr
 
 | Actor | Classification | Core Roles & Operational Responsibilities | Interaction Channel | Relevant PA2 Requirements |
 | :--- | :--- | :--- | :--- | :--- |
-| **Student** | End User (Internal) | <ul><li>Browse and register/drop course sections during open registration windows according to program track (**Standard / Chuẩn** with 2 semesters/yr vs. **Project-Based / Đề án** with 3 semesters/yr).</li><li>Enroll in course sections with integrated Theory and Practice schedules for courses requiring laboratory components.</li><li>Inspect weekly visual schedule grid, examination schedules, seat numbers, physical classrooms, and campus locations (CS1 Nguyễn Văn Cừ / CS2 Linh Trung).</li><li>View semester and cumulative GPA; simulate prospective grades with the What-If GPA Forecaster.</li><li>Submit formal administrative petitions: cross-enrollment requests, enrollment verification, military deferment, grade appeals, and exit certifications.</li><li>View itemized tuition statements differentiated by program track and execute payments via dynamic VietQR codes.</li></ul> | Web Browser (Desktop / Tablet / Mobile) | `FR-STU-01`, `FR-STU-02`, `FR-REG-01` $\rightarrow$ `06`, `FR-TT-01`, `FR-TT-03`, `FR-GRD-01`, `FR-GRD-02`, `FR-REQ-01`, `FR-REQ-03`, `FR-REQ-04` |
+| **Student** | End User (Internal) | <ul><li>Browse and register/drop course sections during open registration windows according to program track (**Standard / Chuẩn** with 2 semesters/yr vs. **Project-Based / Đề án** with 3 semesters/yr).</li><li>Enroll in course sections with integrated Theory and Practice schedules for courses requiring laboratory components.</li><li>Inspect weekly visual schedule grid, examination schedules, physical classrooms, and campus locations (CS1 Nguyễn Văn Cừ / CS2 Linh Trung).</li><li>View semester and cumulative GPA; simulate prospective grades with the What-If GPA Forecaster.</li><li>Submit formal administrative petitions: cross-enrollment requests, enrollment verification, military deferment, grade appeals, and exit certifications.</li><li>View itemized tuition statements differentiated by program track and execute payments via dynamic VietQR codes.</li></ul> | Web Browser (Desktop / Tablet / Mobile) | `FR-STU-01`, `FR-STU-02`, `FR-REG-01` $\rightarrow$ `06`, `FR-TT-01`, `FR-TT-03`, `FR-GRD-01`, `FR-GRD-02`, `FR-REQ-01`, `FR-REQ-03`, `FR-REQ-04` |
 | **Lecturer / TA** | End User (Faculty) | <ul><li>Inspect assigned teaching timetables, exam proctoring schedules (`FR-TT-03`), and enrolled student rosters for assigned Theory and Practical sessions.</li><li>Support co-teaching configurations ($\ge 1$ lecturer/TA per section) with primary and assistant roles.</li><li>Input and edit continuous assessment components (attendance, midterm, laboratory, coursework, final exam).</li><li>Lock and submit finalized section grade sheets to Academic Affairs (`Draft` $\rightarrow$ `Submitted`).</li><li>Export attendance rosters and certified score sheets for departmental records.</li></ul> | Web Browser (Desktop / Laptop) | `FR-TT-01`, `FR-TT-02`, `FR-TT-03`, `FR-GRD-03`, `FR-GRD-04` |
-| **Academic & Administrative Staff** (`ADM` / Giáo vụ) | Domain Administrator & Officer | <ul><li>**Phòng Đào tạo (PĐT):** Configures Standard academic terms (2 semesters), offerings, registration windows, and CS2 room allocations (`FR-ADM-01`, `FR-ADM-02`).</li><li>**Văn phòng các Chương trình Đào tạo theo Đề án (VP Đề án - CTĐA / OEP):** Configures Project-Based academic terms (3 semesters including HK3), high-quality offerings, CS1 lab room allocations, and adjudicates cross-registration petitions.</li><li>Schedule and publish semester examination sessions, exam rooms, and candidate seat numbers (`FR-TT-03`).</li><li>Review, approve, and officially publish submitted grade sheets (`Submitted` $\rightarrow$ `Finalized`) and adjudicate grade rectification requests (`FR-GRD-05`, `FR-GRD-06`).</li><li>Process incoming student administrative petitions (enrollment verification, military deferment, tuition extension, certifications) (`FR-REQ-02`, `FR-REQ-03`).</li><li>Track tuition payment status and simulated billing reconciliation (`FR-ADM-03`).</li></ul> | Web Browser (Administrative Console) | `FR-ADM-01`, `FR-ADM-02`, `FR-ADM-03`, `FR-TT-03`, `FR-GRD-05`, `FR-GRD-06`, `FR-REQ-02`, `FR-REQ-03` |
+| **Academic & Administrative Staff** (`ADM` / Giáo vụ) | Domain Administrator & Officer | <ul><li>**Phòng Đào tạo (PĐT):** Configures Standard academic terms (2 semesters), offerings, registration windows, and CS2 room allocations (`FR-ADM-01`, `FR-ADM-02`).</li><li>**Văn phòng các Chương trình Đào tạo theo Đề án (VP Đề án - CTĐA / OEP):** Configures Project-Based academic terms (3 semesters including HK3), high-quality offerings, CS1 lab room allocations, and adjudicates cross-registration petitions.</li><li>Schedule and publish semester examination sessions, exam rooms, and proctor assignments (`FR-TT-03`).</li><li>Review, approve, and officially publish submitted grade sheets (`Submitted` $\rightarrow$ `Finalized`) and adjudicate grade rectification requests (`FR-GRD-05`, `FR-GRD-06`).</li><li>Process incoming student administrative petitions (enrollment verification, military deferment, tuition extension, certifications) (`FR-REQ-02`, `FR-REQ-03`).</li><li>Track tuition payment status and simulated billing reconciliation (`FR-ADM-03`).</li></ul> | Web Browser (Administrative Console) | `FR-ADM-01`, `FR-ADM-02`, `FR-ADM-03`, `FR-TT-03`, `FR-GRD-05`, `FR-GRD-06`, `FR-REQ-02`, `FR-REQ-03` |
 | **System Administrator** | Technical Operator | <ul><li>Manage user accounts and credentials; configure Demo Persona Switcher accounts for evaluation.</li><li>Maintain Role-Based Access Control (RBAC) policies and security parameters.</li><li>Monitor immutable system audit logs to detect unauthorized or anomalous access.</li><li>Configure external connection parameters (SMTP relay, OIDC IdP, Payment Gateway, MinIO).</li></ul> | Web Browser (Dedicated Admin Console) | `FR-AUTH-01`, `FR-AUTH-02`, `FR-AUTH-03` |
 
 ---
@@ -192,7 +192,7 @@ To resolve discrepancies identified during requirements baseline review (where f
 | **F01** | Course & Specialized Topic Registration | **Must** | `REG` (`FR-REG-01` $\rightarrow$ `FR-REG-07`) | `registration-service` | Realized as a dedicated high-concurrency engine with Redis atomic Lua seat allocation, program cohort segregation, and paired Theory-Practice scheduling. |
 | **F02** | Tuition Management | **Must** | `ADM` (`FR-ADM-03`), `STU` (`FR-STU-01`) | `affairs-service` | Realized via credit-hour rate computation, simulated payment reconciliation, and mock VietQR generation. |
 | **F03** | Academic Result Management | **Must** | `GRD` (`FR-GRD-01` $\rightarrow$ `FR-GRD-06`) | `academic-service` | Realized with dynamic assessment rubrics (`academic.grade_components`), strict BCNF score records, and four-eyes administrative finalization. |
-| **F04** | Course & Exam Scheduling | **Must** | `TT` (`FR-TT-01`, `FR-TT-02`, **`FR-TT-03`**) | `academic-service` | Realized with personal weekly timetable grids (`FR-TT-01`) and dedicated semester examination schedule with seat numbers & conflict detection (**`FR-TT-03`** - resolving PA2 gap). |
+| **F04** | Course & Exam Scheduling | **Must** | `TT` (`FR-TT-01`, `FR-TT-02`, **`FR-TT-03`**) | `academic-service` | Realized with personal weekly timetable grids (`FR-TT-01`) and dedicated semester examination schedule with proctor assignments & conflict detection (**`FR-TT-03`** - resolving PA2 gap). |
 | **F05** | Resource Management | **Could (Deferred)** | *Deferred Beyond MVP* | `academic-service` (Classrooms only) | **Formally deferred beyond MVP** as planned in PA1. Physical facility master data is restricted to classroom assignment (`academic.classrooms`) without long-term reservation workflows. *(Note: PA2 re-used F05 label for Gradebook; canonical mapping is restored here to PA1 F03/GRD).* |
 | **F06** | Document Request & Approval | **Must** | `REQ` (`FR-REQ-01` $\rightarrow$ `FR-REQ-04`) | `affairs-service` | Realized as a formal 5-state administrative lifecycle with supporting file storage in MinIO and student tracking views. |
 | **F07** | Role-Based Access Control (RBAC) | **Must** | `AUTH` (`FR-AUTH-01` $\rightarrow$ `FR-AUTH-03`) | `auth-service` + `gateway` | Realized with Argon2id password hashing, JWT bearer token claims (`Student`, `Lecturer`, `Staff`, `Admin`), and reverse proxy gateway authorization guards. |
@@ -518,21 +518,25 @@ classDiagram
         +UUID id
         +UUID sectionId
         +UUID classroomId
-        +UUID proctorLecturerId
         +String examType
         +Date examDate
         +Time startTime
         +Int durationMinutes
-        +String examFormat
         +String notes
         +hasOverlapWith(ExamSchedule other) Boolean
     }
 
-    class StudentExamSeat {
+    class ExamProctor {
+        +UUID examScheduleId
+        +UUID lecturerId
+        +String role
+        +DateTime assignedAt
+    }
+
+    class StudentExam {
         +UUID id
         +UUID examScheduleId
         +UUID studentId
-        +String seatNumber
         +String attendanceStatus
     }
 
@@ -549,9 +553,10 @@ classDiagram
     Classroom "1" -- "many" SectionSchedule : accommodates
     Section "1" -- "0..many" ExamSchedule : schedules_exam
     Classroom "1" -- "many" ExamSchedule : accommodates_exam
-    Lecturer "1" -- "many" ExamSchedule : proctors
-    ExamSchedule "1" *-- "many" StudentExamSeat : allocates
-    Student "1" -- "many" StudentExamSeat : assigned_to
+    ExamSchedule "1" *-- "many" ExamProctor : assigns_proctors
+    Lecturer "1" -- "many" ExamProctor : proctors
+    ExamSchedule "1" *-- "many" StudentExam : registers_candidates
+    Student "1" -- "many" StudentExam : sits
     Student "1" -- "many" Enrollment : participates
     Section "1" -- "many" Enrollment : registers_theory
     Section "0..1" -- "many" Enrollment : registers_lab
@@ -563,7 +568,7 @@ classDiagram
 
 > [!NOTE]
 > **Domain Entity Ownership Across Bounded Contexts:**
-> - **`Academic Service`:** Authoritatively owns `AcademicProgram`, `Semester`, `Course`, `Section`, `SectionLecturer`, `Classroom`, `SectionSchedule`, `ExamSchedule`, `StudentExamSeat`, `GradeSheet`, `GradeComponent`, and `StudentGrade`.
+> - **`Academic Service`:** Authoritatively owns `AcademicProgram`, `Semester`, `Course`, `Section`, `SectionLecturer`, `Classroom`, `SectionSchedule`, `ExamSchedule`, `ExamProctor`, `StudentExam`, `GradeSheet`, `GradeComponent`, and `StudentGrade`.
 > - **`Registration Service`:** Manages high-throughput `Enrollment` state transitions, in-memory atomic paired seat quotas (`THEORY` + `PRACTICE`), program cohort verification, and schedule planner drafts.
 > - **`Auth Service`:** Authoritatively owns `UserAccount`, credential hashing, and security role mappings.
 
@@ -797,8 +802,8 @@ sequenceDiagram
     Browser->>Gateway: GET /api/academic/exam-schedule/mine?semester_id=SEM_2026_HK1 (Bearer JWT)
     Gateway->>AcadSvc: Forward request with verified Student ID claims
     
-    AcadSvc->>DB: SELECT e.*, s.seat_number, sec.section_code, c.course_name, r.room_code, r.campus FROM academic.exam_schedules e JOIN academic.student_exam_seats s ON s.exam_schedule_id = e.id JOIN academic.sections sec ON sec.id = e.section_id JOIN academic.courses c ON c.id = sec.course_id JOIN academic.classrooms r ON r.id = e.classroom_id WHERE s.student_id = ? AND sec.semester_id = ? ORDER BY e.exam_date, e.start_time
-    DB-->>AcadSvc: Return enrolled exam records with classroom and seat numbers
+    AcadSvc->>DB: SELECT e.*, sec.section_code, c.course_name, r.room_code, r.campus FROM academic.exam_schedules e JOIN academic.student_exams s ON s.exam_schedule_id = e.id JOIN academic.sections sec ON sec.id = e.section_id JOIN academic.courses c ON c.id = sec.course_id JOIN academic.classrooms r ON r.id = e.classroom_id WHERE s.student_id = ? AND sec.semester_id = ? ORDER BY e.exam_date, e.start_time
+    DB-->>AcadSvc: Return enrolled exam records with classroom and assigned proctoring faculty
 
     AcadSvc->>AcadSvc: Run In-Memory Conflict Detector (check for overlapping [start_time, start_time + duration])
     
@@ -809,7 +814,7 @@ sequenceDiagram
     else No Exam Overlaps
         AcadSvc-->>Gateway: HTTP 200 OK {exams: [...], has_conflict: false}
         Gateway-->>Browser: JSON Payload
-        Browser-->>Student: Render full Examination Schedule table (Date, Time, Room, Campus, SBD, Exam Format)
+        Browser-->>Student: Render full Examination Schedule table (Date, Time, Room, Campus, Proctors)
     end
 ```
 
@@ -931,28 +936,34 @@ type StudentGrade struct {
 
 // ExamSchedule models formal semester examination sittings for course sections (FR-TT-03).
 type ExamSchedule struct {
-	ID                 uuid.UUID `json:"id"`
-	SectionID          uuid.UUID `json:"section_id"`
-	ClassroomID        uuid.UUID `json:"classroom_id"`
-	ProctorLecturerID  *uuid.UUID `json:"proctor_lecturer_id"`
-	ExamType           string    `json:"exam_type"` // "MIDTERM" | "FINAL" | "PRACTICE"
-	ExamDate           time.Time `json:"exam_date"`
-	StartTime          string    `json:"start_time"` // "07:30", "13:30"
-	DurationMinutes    int       `json:"duration_minutes"` // 60, 90, 120
-	ExamFormat         string    `json:"exam_format"` // "Tự luận", "Trắc nghiệm", "Thực hành máy"
-	Notes              string    `json:"notes"`
+	ID              uuid.UUID `json:"id"`
+	SectionID       uuid.UUID `json:"section_id"`
+	ClassroomID     uuid.UUID `json:"classroom_id"`
+	ExamType        string    `json:"exam_type"` // "MIDTERM" | "FINAL" | "PRACTICE"
+	ExamDate        time.Time `json:"exam_date"`
+	StartTime       string    `json:"start_time"` // "07:30", "13:30"
+	DurationMinutes int       `json:"duration_minutes"` // 60, 90, 120
+	Notes           string    `json:"notes"`
 }
 
-// StudentExamSeat models student seat assignment (SBD) for a scheduled examination sitting.
-type StudentExamSeat struct {
+// ExamProctor models N:M assignment of proctors to an examination room sitting (supports >= 1 proctor per room).
+type ExamProctor struct {
+	ExamScheduleID uuid.UUID `json:"exam_schedule_id"`
+	LecturerID     uuid.UUID `json:"lecturer_id"`
+	Role           string    `json:"role"` // "CHIEF_PROCTOR" (CBCT 1), "ASSISTANT_PROCTOR" (CBCT 2)
+	AssignedAt     time.Time `json:"assigned_at"`
+}
+
+// StudentExam records student eligibility and proctoring attendance for an exam sitting.
+// Students sit in order of student ID (MSSV) arranged directly by proctors in the room.
+type StudentExam struct {
 	ID               uuid.UUID `json:"id"`
 	ExamScheduleID   uuid.UUID `json:"exam_schedule_id"`
 	StudentID        uuid.UUID `json:"student_id"`
-	SeatNumber       string    `json:"seat_number"` // Candidate number (SBD), e.g. "SBD-042"
 	AttendanceStatus string    `json:"attendance_status"` // "SCHEDULED", "PRESENT", "ABSENT", "EXEMPT"
 }
 
-// ExamScheduleDTO encapsulates personalized student exam schedule details with room and seat.
+// ExamScheduleDTO encapsulates personalized student exam schedule details with room and proctor names.
 type ExamScheduleDTO struct {
 	ID              uuid.UUID `json:"id"`
 	CourseCode      string    `json:"course_code"`
@@ -964,8 +975,7 @@ type ExamScheduleDTO struct {
 	DurationMinutes int       `json:"duration_minutes"`
 	RoomCode        string    `json:"room_code"`
 	Campus          string    `json:"campus"`
-	SeatNumber      string    `json:"seat_number"`
-	ExamFormat      string    `json:"exam_format"`
+	ProctorNames    []string  `json:"proctor_names"`
 	HasTimeConflict bool      `json:"has_time_conflict"`
 }
 
@@ -974,7 +984,7 @@ type ExamScheduleService interface {
 	GetStudentExamSchedule(ctx context.Context, studentID uuid.UUID, semesterID uuid.UUID) ([]ExamScheduleDTO, error)
 	GetLecturerProctorSchedule(ctx context.Context, lecturerID uuid.UUID, semesterID uuid.UUID) ([]ExamScheduleDTO, error)
 	DetectExamConflicts(ctx context.Context, studentID uuid.UUID, semesterID uuid.UUID) (bool, []string, error)
-	ScheduleExamSitting(ctx context.Context, schedule ExamSchedule, seats []StudentExamSeat) error
+	ScheduleExamSitting(ctx context.Context, schedule ExamSchedule, proctors []ExamProctor, students []StudentExam) error
 }
 
 // RegistrationService defines domain contracts for high-concurrency course enrollment.
@@ -1030,8 +1040,7 @@ export interface ExamScheduleItem {
   durationMinutes: number; // 60, 90, 120
   roomCode: string;
   campus: 'CS1_NV_CU' | 'CS2_LINH_TRUNG';
-  seatNumber: string; // SBD
-  examFormat: 'Tự luận' | 'Trắc nghiệm' | 'Thực hành máy';
+  proctors: string[]; // List of assigned proctor faculty names
   hasTimeConflict: boolean;
 }
 
@@ -1091,10 +1100,11 @@ erDiagram
     CLASSROOMS ||--o{ SECTION_SCHEDULES : accommodates
     
     SECTIONS ||--o{ EXAM_SCHEDULES : schedules
-    CLASSROOMS ||--o{ EXAM_SCHEDULES : hosts
-    LECTURERS ||--o{ EXAM_SCHEDULES : proctors
-    EXAM_SCHEDULES ||--o{ STUDENT_EXAM_SEATS : allocates
-    STUDENTS ||--o{ STUDENT_EXAM_SEATS : sits
+    CLASSROOMS ||--o{ EXAM_SCHEDULES : accommodates
+    EXAM_SCHEDULES ||--o{ EXAM_PROCTORS : assigns
+    LECTURERS ||--o{ EXAM_PROCTORS : proctors
+    EXAM_SCHEDULES ||--o{ STUDENT_EXAMS : registers
+    STUDENTS ||--o{ STUDENT_EXAMS : sits
 
     STUDENTS ||--o{ ENROLLMENTS : registers
     SECTIONS ||--o{ ENROLLMENTS : enrolls
@@ -1253,20 +1263,24 @@ erDiagram
         uuid id PK
         uuid section_id FK
         uuid classroom_id FK
-        uuid proctor_lecturer_id FK
         varchar exam_type
         date exam_date
         time start_time
         integer duration_minutes
-        varchar exam_format
         text notes
     }
 
-    STUDENT_EXAM_SEATS {
+    EXAM_PROCTORS {
+        uuid exam_schedule_id PK, FK
+        uuid lecturer_id PK, FK
+        varchar role
+        timestamp assigned_at
+    }
+
+    STUDENT_EXAMS {
         uuid id PK
         uuid exam_schedule_id FK
         uuid student_id FK
-        varchar seat_number
         varchar attendance_status
     }
 ```
@@ -1463,38 +1477,48 @@ Stores raw evaluated scores per student per assessment component, linked to veri
 ---
 
 ### Table: `academic.exam_schedules`
-Stores centralized examination sittings, physical venues, and proctor assignments per course section (`FR-TT-03`).
+Stores centralized examination sittings and physical venues per course section (`FR-TT-03`).
 
 | Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
 | :--- | :--- | :---: | :--- | :--- | :--- |
 | `id` | `UUID` | **No** | `gen_random_uuid()` | **PK** | Exam sitting identifier |
 | `section_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.sections(id)` | Target course section |
 | `classroom_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.classrooms(id)` | Examination room facility |
-| `proctor_lecturer_id` | `UUID` | Yes | `NULL` | **FK** $\rightarrow$ `auth.accounts(id)` | Assigned proctoring faculty / staff |
 | `exam_type` | `VARCHAR(20)` | **No** | None | `CHECK (exam_type IN ('MIDTERM', 'FINAL', 'PRACTICE'))` | Examination phase |
 | `exam_date` | `DATE` | **No** | None | None | Official examination date |
 | `start_time` | `TIME` | **No** | None | None | Exam session start time (e.g. `07:30`) |
 | `duration_minutes` | `SMALLINT` | **No** | `90` | `CHECK (duration_minutes > 0)` | Duration in minutes (e.g. 60, 90, 120) |
-| `exam_format` | `VARCHAR(30)` | **No** | `'Tự luận'` | `CHECK (exam_format IN ('Tự luận', 'Trắc nghiệm', 'Thực hành máy', 'Vấn đáp'))` | Delivery and grading modality |
-| `notes` | `TEXT` | Yes | `NULL` | None | Special student instructions (allowed materials) |
+| `notes` | `TEXT` | Yes | `NULL` | None | Special student instructions |
 
 *Constraint:* `UNIQUE (classroom_id, exam_date, start_time)` prevents double-booking a physical exam hall for overlapping examinations.
 
 ---
 
-### Table: `academic.student_exam_seats`
-Stores candidate seat assignments and attendance records for each student in an examination sitting (`FR-TT-03`).
+### Table: `academic.exam_proctors`
+Supports multiple faculty proctors assigned to the same examination sitting hall (`FR-TT-03`).
 
 | Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
 | :--- | :--- | :---: | :--- | :--- | :--- |
-| `id` | `UUID` | **No** | `gen_random_uuid()` | **PK** | Candidate seat record identifier |
+| `exam_schedule_id` | `UUID` | **No** | None | **PK, FK** $\rightarrow$ `academic.exam_schedules(id)` ON DELETE CASCADE | Target examination sitting |
+| `lecturer_id` | `UUID` | **No** | None | **PK, FK** $\rightarrow$ `auth.accounts(id)` | Assigned proctoring faculty / staff |
+| `role` | `VARCHAR(20)` | **No** | `'ASSISTANT_PROCTOR'` | `CHECK (role IN ('CHIEF_PROCTOR', 'ASSISTANT_PROCTOR', 'SUPERVISOR'))` | Proctoring responsibility role (CBCT 1, CBCT 2) |
+| `assigned_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Proctor assignment timestamp |
+
+*Constraint:* `PRIMARY KEY (exam_schedule_id, lecturer_id)` ensures a lecturer is assigned at most once to an exam room sitting.
+
+---
+
+### Table: `academic.student_exams`
+Records student candidate registration and proctoring attendance for an examination sitting (`FR-TT-03`). *(Note: Students are seated dynamically in room by student ID / MSSV order managed by proctors; pre-assigned individual seat numbers are omitted).*
+
+| Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| `id` | `UUID` | **No** | `gen_random_uuid()` | **PK** | Candidate record identifier |
 | `exam_schedule_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.exam_schedules(id)` ON DELETE CASCADE | Associated examination sitting |
 | `student_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.students(id)` | Candidate student identity |
-| `seat_number` | `VARCHAR(15)` | **No** | None | None | Candidate seat number (SBD), e.g. "SBD-042" |
 | `attendance_status` | `VARCHAR(20)` | **No** | `'SCHEDULED'` | `CHECK (attendance_status IN ('SCHEDULED', 'PRESENT', 'ABSENT', 'EXEMPT'))` | Proctoring attendance status |
 
-*Constraint:* `UNIQUE (exam_schedule_id, student_id)` ensures a student has at most one assigned seat per exam sitting.  
-*Constraint:* `UNIQUE (exam_schedule_id, seat_number)` guarantees unique seat numbers within an exam room.
+*Constraint:* `UNIQUE (exam_schedule_id, student_id)` ensures a student has at most one registration record per exam sitting.
 
 ---
 
@@ -1525,7 +1549,8 @@ The data model has been formally normalized to eliminate update, insertion, and 
      - Overall scores are dynamically calculated via views/queries, removing $\{attendance, midterm, \dots\} \rightarrow overall\_score$.
    - **Resolution of Examination Scheduling Dependencies (FR-TT-03):**
      - In `academic.exam_schedules`, each non-prime attribute depends solely on candidate keys $\{id\}$ or $\{classroom\_id, exam\_date, start\_time\}$. Physical room properties remain isolated in `academic.classrooms`.
-     - In `academic.student_exam_seats`, candidates are decoupled from examination sittings, with non-prime attributes strictly dependent on $\{id\}$ or composite candidate keys $\{exam\_schedule\_id, student\_id\}$ and $\{exam\_schedule\_id, seat\_number\}$, satisfying strict BCNF.
+     - In `academic.student_exams`, student exam allocations are normalized with non-prime attributes strictly dependent on $\{id\}$ or composite candidate key $\{exam\_schedule\_id, student\_id\}$. In accordance with university operations, student seating is organized dynamically by proctors based on sorted Student IDs (MSSV) on the exam day, eliminating the need for static pre-assigned seat numbers.
+     - In `academic.exam_proctors`, multiple proctor assignments per exam room (e.g., CBCT 1, CBCT 2) are normalized as an $N:M$ relation where the determinant is the candidate key $\{exam\_schedule\_id, lecturer\_id\}$, completely eliminating multi-valued dependencies and satisfying strict BCNF.
    - **Result:** Every determinant across all operational tables is a candidate key / superkey, establishing **100% BCNF compliance**.
    - **Controlled Intentional Denormalization Justification:**
      - The only non-3NF attribute retained is `sections.current_enrolled`. This integer counter caches active enrollment count directly on the section record to allow $O(1)$ seat quota validation and pessimistic row locking (`SELECT FOR UPDATE`) during registration spikes, eliminating database server starvation from recurrent `COUNT(*)` aggregations.
@@ -1559,10 +1584,13 @@ CREATE INDEX idx_student_grades_enrollment ON academic.student_grades (enrollmen
 CREATE INDEX idx_requests_status_created ON affairs.student_requests (status, created_at DESC);
 
 -- Index 8: Fast student examination schedule retrieval & conflict checks (FR-TT-03)
-CREATE INDEX idx_student_exam_seats_student ON academic.student_exam_seats (student_id, exam_schedule_id);
+CREATE INDEX idx_student_exams_student ON academic.student_exams (student_id, exam_schedule_id);
 
 -- Index 9: Room conflict and proctoring timetable lookups (FR-TT-03)
 CREATE INDEX idx_exam_schedules_datetime_room ON academic.exam_schedules (exam_date, start_time, classroom_id);
+
+-- Index 10: Proctor assignment retrieval for invigilating lecturers (FR-TT-03)
+CREATE INDEX idx_exam_proctors_lecturer ON academic.exam_proctors (lecturer_id, exam_schedule_id);
 ```
 
 ---
@@ -1655,7 +1683,7 @@ flowchart TD
 - **Backend Interaction:** Interacts directly with `academic-service` via `GET /api/academic/exam-schedule/mine?semester_id={id}` (`FR-TT-03`).
 - **Header:** Semester selector (HK1 / HK2 / HK3), Examination period status countdown badge, "Print Schedule / Export PDF" quick action button.
 - **Data Grid Layout:**
-  - Responsive table displaying: **Mã môn**, **Tên học phần**, **Mã lớp**, **Hình thức thi** (badge: `Tự luận`, `Trắc nghiệm`, `Thực hành máy`), **Ngày thi** (DD/MM/YYYY), **Ca thi** (Giờ bắt đầu – Giờ kết thúc, Thời lượng), **Phòng thi**, **Cơ sở** (badge: `CS1 Nguyễn Văn Cừ` / `CS2 Linh Trung`), **Số báo danh (SBD)**, và **Ghi chú sinh viên**.
+  - Responsive table displaying: **Mã môn**, **Tên học phần**, **Mã lớp**, **Ngày thi** (DD/MM/YYYY), **Ca thi** (Giờ bắt đầu – Giờ kết thúc, Thời lượng), **Phòng thi**, **Cơ sở** (badge: CS1 Nguyễn Văn Cừ / CS2 Linh Trung), **Cán bộ coi thi** (danh sách giảng viên coi thi được phân công), và **Ghi chú** (*Sinh viên ngồi theo thứ tự MSSV do CBCT hướng dẫn tại phòng thi*).
 - **Conflict Highlight & Advisory:**
   - If any two exams overlap in date and time, the screen displays a prominent amber warning card at the top:
     > ⚠️ **Cảnh báo trùng ca thi:** Bạn có 2 môn thi bị trùng giờ: **[Mã học phần A]** và **[Mã học phần B]** vào ngày **[Ngày thi]** lúc **[Giờ thi]**. Vui lòng liên hệ Giáo vụ phòng Đào tạo (hoặc VP Đề án) để được bố trí ca thi dự phòng.
@@ -1699,7 +1727,7 @@ This matrix proves that every Functional Requirement specified in **PA2** is ful
 | **`FR-REG-04`** | Timetable Conflict Advisory | `registration-service`| Client Svelte Engine + Conflict API | `academic.section_schedules`, `academic.classrooms` | `SectionSchedule.hasOverlapWith()` |
 | **`FR-REG-05`** | Schedule Planner (Draft) | `registration-service`| `POST /api/registration/planner/save` | `registration.planner_drafts` | `RegistrationService.GetPlannerSchedule()` |
 | **`FR-TT-01`** | Personal Weekly Timetable | `academic-service`| `GET /api/academic/timetable/mine` | `academic.section_schedules`, `academic.classrooms` | `StudentTimetableQuery` |
-| **`FR-TT-03`** | Student Examination Schedule | `academic-service`| `GET /api/academic/exam-schedule/mine` | `academic.exam_schedules`, `academic.student_exam_seats`, `academic.classrooms` | `ExamScheduleService` |
+| **`FR-TT-03`** | Student Examination Schedule | `academic-service`| `GET /api/academic/exam-schedule/mine` | `academic.exam_schedules`, `academic.student_exams`, `academic.exam_proctors`, `academic.classrooms` | `ExamScheduleService` |
 | **`FR-GRD-01`** | Official Grade Inspection | `academic-service`| `GET /api/grades/mine` | `academic.student_grades` | `GradebookService.CalculateOverallScores()` |
 | **`FR-GRD-03`** | Section Grade Entry | `academic-service`| `PUT /api/grades/sections/:id` | `academic.student_grades` | `GradebookService.BatchUpdateScores()` |
 | **`FR-GRD-04`** | Grade Sheet Submission | `academic-service`| `POST /api/grades/sections/:id/submit`| `academic.grade_sheets` | `GradeSheet.submitToReview()` |
@@ -1744,7 +1772,7 @@ The following design decisions record deliberate refinements between the initial
 ---
 8. **Refinement `CHG-08` — Formalization of Examination Scheduling Subsystem (`FR-TT-03`):**
    - *PA2 Baseline:* PA1 specified Course & Exam Scheduling (`F04`), but the PA2 requirements matrix lacked an explicit functional requirement for examination timetables, resulting in a gap between the UI-05 Exams screen and backend data models.
-   - *PA3 Design Decision:* Formally established **`FR-TT-03: Student Examination Schedule`**. Decomposed examination logistics into two BCNF-compliant relational tables: `academic.exam_schedules` (exam phase, date, start time, duration, proctoring faculty, and classroom facility) and `academic.student_exam_seats` (candidate seat number SBD and attendance status). Added automatic exam overlap conflict detection, student exam query endpoint (`GET /api/academic/exam-schedule/mine`), dedicated sequence diagram, and UI-05 screen specification.
+   - *PA3 Design Decision:* Formally established **`FR-TT-03: Student Examination Schedule`**. Decomposed examination logistics into BCNF-compliant relational tables: `academic.exam_schedules` (exam phase, date, start time, duration, classroom facility), `academic.exam_proctors` (supporting multiple invigilating faculty per room), and `academic.student_exams` (candidate enrollment and attendance status; seating dynamically ordered by student ID / MSSV without static seat numbers; omitting exam format flags). Added automatic exam overlap conflict detection, student exam query endpoint (`GET /api/academic/exam-schedule/mine`), dedicated sequence diagram, and UI-05 screen specification.
 9. **Refinement `CHG-09` — Explicit Project Scope Exclusions & 3-Week MoSCoW Alignment:**
    - *PA2 Baseline:* Scope boundaries lacked explicit negative constraints regarding institutional integration limits.
    - *PA3 Design Decision:* Formally documented in Section 1.2.3 and Section 1.2.5 that Portal67 operates on sample/seeded test data (zero live HCMUS production DB connection), employs mock VietQR webhooks (zero real financial processing), and issues digital demonstration proofs (no legally binding physical paperwork). Re-aligned feature delivery into a rigorous 3-week construction MoSCoW plan (Weeks 8–10) with F05 (Resource Management) deferred beyond MVP.
@@ -1771,7 +1799,7 @@ To guarantee rigor, prevent unaddressed review findings, and establish a firm ba
 | :---: | :--- | :--- | :--- | :--- | :---: |
 | **REV-01** | Scope & Boundaries | Out-of-scope previously lacked explicit project exclusions regarding campus production data and payment limits. | Explicitly formalized in Section 1.2.3: (1) seeded data only / no live HCMUS DB, (2) simulated payment gateway / no real banking, (3) digital demo records / no physical legal paperwork. Added 3-week MoSCoW allocation table. | Section 1.2.3, Section 1.2.3.1, `CHG-09` | **Resolved** |
 | **REV-02** | Feature Traceability | Feature IDs in PA2 diverged from PA1 (e.g. F05 labeled as Gradebook instead of Resource Management) without a cross-reference table. | Constructed master harmonization matrix (Section 1.2.5) mapping PA1 F01–F08 to PA2 subsystems, confirming F05 Resource Management is deferred beyond MVP and mapping Gradebook to F03/GRD. | Section 1.2.5 | **Resolved** |
-| **REV-03** | Exam Scheduling Gap | PA1 Must-have feature F04 contained exam scheduling, but PA2 lacked an explicit FR, leaving UI-05 Exams disconnected from design. | Formally introduced `FR-TT-03`. Designed `academic.exam_schedules` and `academic.student_exam_seats` tables (BCNF), class entities, conflict detection algorithm, and UI-05 screen spec. | Section 1.2.1, 2.1, 2.3.3, 3.2, 4.2, 5.1, `CHG-08` | **Resolved** |
+| **REV-03** | Exam Scheduling Gap | PA1 Must-have feature F04 contained exam scheduling, but PA2 lacked an explicit FR, leaving UI-05 Exams disconnected from design. | Formally introduced `FR-TT-03`. Designed `academic.exam_schedules`, `academic.exam_proctors` (multi-proctor support), and `academic.student_exams` tables (BCNF, dynamic MSSV seating), class entities, conflict detection algorithm, and UI-05 screen spec. | Section 1.2.1, 2.1, 2.3.3, 3.2, 4.2, 5.1, `CHG-08` | **Resolved** |
 | **REV-04** | Error Scenarios & Behavior | System design sequences and AC previously focused predominantly on happy paths without observable user-facing error cues. | Expanded Section 2.3 with observable error branches: Section Capacity Exhausted (red toast), Closed Window (banner), Late Drop (warning modal), and Request Rejection with mandatory feedback notes. | Section 2.3.1, 2.3.2, 4.2 | **Resolved** |
 | **REV-05** | Accessibility Audit | Previous deliverable lacked empirical accessibility verification data for key screens. | Formulated empirical WCAG 2.1 AA audit table (Section 4.3) with exact measured color contrast ratios (all $\ge 4.5:1$, body text 15.4:1), visible focus rings, ARIA roles, and keyboard navigation test results. | Section 4.3 | **Resolved** |
 | **REV-06** | Data Model Normalization | High-concurrency enrollment and dynamic rubric scoring required formal proof against update anomalies. | Proved mathematical Boyce-Codd Normal Form (BCNF) compliance for all operational schemas (Section 3.3). Justified single intentional denormalization (`sections.current_enrolled`) for sub-2ms seat validation. | Section 3.2, 3.3, 3.4 | **Resolved** |
