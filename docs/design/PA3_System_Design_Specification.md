@@ -833,47 +833,53 @@ import (
 	"github.com/google/uuid"
 )
 
+// BaseModel provides audit timestamp metadata inherited by all persistent domain entities.
+type BaseModel struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
 // Account models the core user identity pre-provisioned by university administration.
 type Account struct {
-	ID         uuid.UUID `json:"id"`
-	Identifier string    `json:"identifier"` // MSSV or MSCB
-	Email      string    `json:"email"`      // Institutional email
-	Role       string    `json:"role"`       // "STUDENT" | "LECTURER" | "STAFF" | "ADMIN"
-	IsActive   bool      `json:"is_active"`
-	CreatedAt  time.Time `json:"created_at"`
+	BaseModel
+	Identifier string `json:"identifier"` // MSSV or MSCB
+	Email      string `json:"email"`      // Institutional email
+	Role       string `json:"role"`       // "STUDENT" | "LECTURER" | "STAFF" | "ADMIN"
+	IsActive   bool   `json:"is_active"`
 }
 
 // PasswordCredential stores cryptographic password hash for local credential logins.
 type PasswordCredential struct {
 	AccountID      uuid.UUID `json:"account_id"`
 	PasswordHash   string    `json:"-"`
-	UpdatedAt      time.Time `json:"updated_at"`
 	FailedAttempts int       `json:"failed_attempts"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // OAuthIdentity links external institutional Single Sign-On (e.g. Google OIDC) to an Account.
 type OAuthIdentity struct {
-	ID             uuid.UUID `json:"id"`
+	BaseModel
 	AccountID      uuid.UUID `json:"account_id"`
 	Provider       string    `json:"provider"`         // "GOOGLE" | "VNU_SSO"
 	ProviderUserID string    `json:"provider_user_id"` // Google sub claim
 	ProviderEmail  string    `json:"provider_email"`
-	LinkedAt       time.Time `json:"linked_at"`
 }
 
 // AcademicProgram models Standard (Đại trà) vs Project-Based (Đề án / CLC / APCS / VP) tracks.
 type AcademicProgram struct {
-	ID                     uuid.UUID `json:"id"`
-	ProgramCode            string    `json:"program_code"` // e.g. "CNTT_CHUAN", "KHMT_APCS"
-	ProgramName            string    `json:"program_name"`
-	ProgramType            string    `json:"program_type"` // "STANDARD" | "PROJECT_BASED"
-	TotalSemestersPerYear  int       `json:"total_semesters_per_year"` // 2 (Standard) vs 3 (Project-Based)
-	ManagingUnit           string    `json:"managing_unit"` // "PHONG_DAO_TAO" | "VP_DE_AN"
+	BaseModel
+	ProgramCode           string `json:"program_code"` // e.g. "CNTT_CHUAN", "KHMT_APCS"
+	ProgramName           string `json:"program_name"`
+	ProgramType           string `json:"program_type"` // "STANDARD" | "PROJECT_BASED"
+	TotalSemestersPerYear int    `json:"total_semesters_per_year"` // 2 (Standard) vs 3 (Project-Based)
+	ManagingUnit          string `json:"managing_unit"` // "PHONG_DAO_TAO" | "VP_DE_AN"
 }
 
 // Semester models academic term cycles per program type (Trimester support for Project-Based).
 type Semester struct {
-	ID           uuid.UUID `json:"id"`
+	BaseModel
 	AcademicYear string    `json:"academic_year"` // e.g. "2026-2027"
 	TermNumber   int       `json:"term_number"`   // 1, 2, or 3
 	ProgramType  string    `json:"program_type"`  // "STANDARD" | "PROJECT_BASED"
@@ -884,17 +890,17 @@ type Semester struct {
 
 // Classroom models physical facility inventory across campus locations (CS1 vs CS2).
 type Classroom struct {
-	ID           uuid.UUID `json:"id"`
-	RoomCode     string    `json:"room_code"`     // e.g. "C32", "Lab_I41"
-	Building     string    `json:"building"`      // e.g. "Tòa C", "Tòa I"
-	Campus       string    `json:"campus"`        // "CS1_NV_CU" | "CS2_LINH_TRUNG"
-	RoomCapacity int       `json:"room_capacity"`
-	RoomType     string    `json:"room_type"`     // "THEORY" | "COMPUTER_LAB" | "HALL"
+	BaseModel
+	RoomCode     string `json:"room_code"`     // e.g. "C32", "Lab_I41"
+	Building     string `json:"building"`      // e.g. "Tòa C", "Tòa I"
+	Campus       string `json:"campus"`        // "CS1_NV_CU" | "CS2_LINH_TRUNG"
+	RoomCapacity int    `json:"room_capacity"`
+	RoomType     string `json:"room_type"`     // "THEORY" | "COMPUTER_LAB" | "HALL"
 }
 
 // Section models a course offering (lớp học phần) encapsulating Theory and integrated Practice sessions.
 type Section struct {
-	ID                       uuid.UUID `json:"id"`
+	BaseModel
 	CourseID                 uuid.UUID `json:"course_id"`
 	SemesterID               uuid.UUID `json:"semester_id"`
 	SectionCode              string    `json:"section_code"` // e.g. "CSC10002_01"
@@ -910,12 +916,13 @@ type SectionLecturer struct {
 	LecturerID uuid.UUID `json:"lecturer_id"`
 	Role       string    `json:"role"`        // "PRIMARY" | "CO_LECTURER" | "TA"
 	IsPrimary  bool      `json:"is_primary"`
-	AssignedAt time.Time `json:"assigned_at"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // GradeComponent represents a configurable scoring item within a section's assessment rubric.
 type GradeComponent struct {
-	ID               uuid.UUID `json:"id"`
+	BaseModel
 	GradeSheetID     uuid.UUID `json:"grade_sheet_id"`
 	ComponentName    string    `json:"component_name"`
 	WeightPercentage float64   `json:"weight_percentage"`
@@ -926,17 +933,16 @@ type GradeComponent struct {
 
 // StudentGrade represents an evaluated score entry for a student's enrollment on a component.
 type StudentGrade struct {
-	ID               uuid.UUID  `json:"id"`
-	GradeComponentID uuid.UUID  `json:"grade_component_id"`
-	EnrollmentID     uuid.UUID  `json:"enrollment_id"`
-	Score            *float64   `json:"score"`
-	Notes            string     `json:"notes"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	BaseModel
+	GradeComponentID uuid.UUID `json:"grade_component_id"`
+	EnrollmentID     uuid.UUID `json:"enrollment_id"`
+	Score            *float64  `json:"score"`
+	Notes            string    `json:"notes"`
 }
 
 // ExamSchedule models formal semester examination sittings for course sections (FR-TT-03).
 type ExamSchedule struct {
-	ID              uuid.UUID `json:"id"`
+	BaseModel
 	SectionID       uuid.UUID `json:"section_id"`
 	ClassroomID     uuid.UUID `json:"classroom_id"`
 	ExamType        string    `json:"exam_type"` // "MIDTERM" | "FINAL" | "PRACTICE"
@@ -951,13 +957,14 @@ type ExamProctor struct {
 	ExamScheduleID uuid.UUID `json:"exam_schedule_id"`
 	LecturerID     uuid.UUID `json:"lecturer_id"`
 	Role           string    `json:"role"` // "CHIEF_PROCTOR" (CBCT 1), "ASSISTANT_PROCTOR" (CBCT 2)
-	AssignedAt     time.Time `json:"assigned_at"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // StudentExam records student eligibility and proctoring attendance for an exam sitting.
 // Students sit in order of student ID (MSSV) arranged directly by proctors in the room.
 type StudentExam struct {
-	ID               uuid.UUID `json:"id"`
+	BaseModel
 	ExamScheduleID   uuid.UUID `json:"exam_schedule_id"`
 	StudentID        uuid.UUID `json:"student_id"`
 	AttendanceStatus string    `json:"attendance_status"` // "SCHEDULED", "PRESENT", "ABSENT", "EXEMPT"
@@ -1124,6 +1131,8 @@ erDiagram
         varchar program_type
         smallint total_semesters_per_year
         varchar managing_unit
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     SEMESTERS {
@@ -1134,6 +1143,8 @@ erDiagram
         date start_date
         date end_date
         varchar status
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     CLASSROOMS {
@@ -1143,6 +1154,8 @@ erDiagram
         varchar campus
         integer room_capacity
         varchar room_type
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     ACCOUNTS {
@@ -1151,14 +1164,16 @@ erDiagram
         varchar email UK
         varchar role
         boolean is_active
-        timestamp created_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     PASSWORDS {
         uuid account_id PK, FK
         varchar password_hash
-        timestamp updated_at
         integer failed_attempts
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     OAUTH_IDENTITIES {
@@ -1167,7 +1182,8 @@ erDiagram
         varchar provider
         varchar provider_user_id UK
         varchar provider_email
-        timestamp linked_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     STUDENTS {
@@ -1178,6 +1194,8 @@ erDiagram
         integer cohort_year
         numeric cumulative_gpa
         integer completed_credits
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     LECTURERS {
@@ -1185,6 +1203,8 @@ erDiagram
         varchar staff_code UK
         varchar full_name
         varchar department
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     COURSES {
@@ -1193,6 +1213,8 @@ erDiagram
         varchar course_name
         integer credits
         boolean has_lab
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     SECTIONS {
@@ -1204,6 +1226,8 @@ erDiagram
         integer current_enrolled
         varchar target_program_type
         boolean is_cross_enrollment_allowed
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     SECTION_LECTURERS {
@@ -1211,7 +1235,8 @@ erDiagram
         uuid lecturer_id PK, FK
         varchar role
         boolean is_primary
-        timestamp assigned_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     SECTION_SCHEDULES {
@@ -1222,6 +1247,8 @@ erDiagram
         smallint day_of_week
         smallint start_period
         smallint end_period
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     ENROLLMENTS {
@@ -1229,7 +1256,8 @@ erDiagram
         uuid student_id FK
         uuid section_id FK
         varchar status
-        timestamp registered_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     GRADE_SHEETS {
@@ -1238,6 +1266,8 @@ erDiagram
         varchar status
         timestamp submitted_at
         timestamp finalized_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     GRADE_COMPONENTS {
@@ -1248,6 +1278,8 @@ erDiagram
         numeric max_score
         text description
         smallint display_order
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     STUDENT_GRADES {
@@ -1256,7 +1288,8 @@ erDiagram
         uuid enrollment_id FK
         numeric score
         text notes
-        timestamp updated_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     EXAM_SCHEDULES {
@@ -1268,13 +1301,16 @@ erDiagram
         time start_time
         integer duration_minutes
         text notes
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     EXAM_PROCTORS {
         uuid exam_schedule_id PK, FK
         uuid lecturer_id PK, FK
         varchar role
-        timestamp assigned_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     STUDENT_EXAMS {
@@ -1282,12 +1318,30 @@ erDiagram
         uuid exam_schedule_id FK
         uuid student_id FK
         varchar attendance_status
+        timestamptz created_at
+        timestamptz updated_at
     }
 ```
 
 ---
 
 ## 3.2. Detailed Table Specifications & Integrity Constraints
+
+> [!TIP] **Base Entity & Audit Timestamp Pattern (100% System-Wide Standardization):**  
+> To guarantee uniform auditability, observability, high-performance cursor-based pagination, and optimistic concurrency control across all subsystems, **every single table** in the relational database implements the Base Entity timestamp standard:
+> - `created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP`: Immutable physical record creation timestamp.
+> - `updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP`: Automatically updated on every record modification.
+> 
+> In PostgreSQL, automatic maintenance of `updated_at` across all tables is enforced via a shared trigger function:
+> ```sql
+> CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+> RETURNS TRIGGER AS $$
+> BEGIN
+>   NEW.updated_at = CURRENT_TIMESTAMP;
+>   RETURN NEW;
+> END;
+> $$ LANGUAGE plpgsql;
+> ```
 
 ### Table: `auth.accounts`
 Stores pre-provisioned user identities (students, faculty, administrative staff) within the closed institutional portal.
@@ -1299,7 +1353,8 @@ Stores pre-provisioned user identities (students, faculty, administrative staff)
 | `email` | `VARCHAR(255)` | **No** | None | **UK** | Official institutional email |
 | `role` | `VARCHAR(20)` | **No** | None | `CHECK (role IN ('STUDENT', 'LECTURER', 'STAFF', 'ADMIN'))` | RBAC core system role |
 | `is_active` | `BOOLEAN` | **No** | `TRUE` | None | Account activation status |
-| `created_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Account creation timestamp |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Account creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last account profile update timestamp |
 
 ---
 
@@ -1310,8 +1365,9 @@ Stores cryptographic password credentials isolated from core user profiles for l
 | :--- | :--- | :---: | :--- | :--- | :--- |
 | `account_id` | `UUID` | **No** | None | **PK, FK** $\rightarrow$ `auth.accounts(id)` ON DELETE CASCADE | Associated user account |
 | `password_hash` | `VARCHAR(255)`| **No** | None | None | Argon2id / bcrypt cryptographic digest |
-| `updated_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Last password update timestamp |
 | `failed_attempts`| `INT` | **No** | `0` | None | Consecutive failed login counter |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Initial credential generation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last password update timestamp |
 
 ---
 
@@ -1325,7 +1381,8 @@ Stores external institutional SSO / OAuth linkages, supporting multi-provider au
 | `provider` | `VARCHAR(30)` | **No** | None | None | Identity provider (e.g., `'GOOGLE'`, `'VNU_SSO'`) |
 | `provider_user_id`| `VARCHAR(255)`| **No**| None | None | Unique provider subject ID (sub claim) |
 | `provider_email` | `VARCHAR(255)`| **No**| None | None | Verified email returned by OAuth provider |
-| `linked_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Timestamp when SSO identity was linked |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Initial SSO linkage timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last SSO token/profile refresh timestamp |
 
 *Constraint:* `UNIQUE (provider, provider_user_id)` prevents the same external SSO account from being claimed by multiple local accounts.
 
@@ -1342,6 +1399,8 @@ Stores distinct degree curriculum tracks, isolating Standard (Đại trà) from 
 | `program_type` | `VARCHAR(20)` | **No** | None | `CHECK (program_type IN ('STANDARD', 'PROJECT_BASED'))` | Track classification |
 | `total_semesters_per_year`| `SMALLINT` | **No** | `2` | `CHECK (total_semesters_per_year IN (2, 3))` | 2 for Standard, 3 for Trimester Đề án |
 | `managing_unit`| `VARCHAR(50)` | **No** | None | `CHECK (managing_unit IN ('PHONG_DAO_TAO', 'VP_DE_AN'))` | Responsible faculty administrative office |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Curriculum program creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last curriculum modification timestamp |
 
 ---
 
@@ -1357,6 +1416,8 @@ Stores academic term cycles segregated by program type (supporting 2 standard te
 | `start_date`   | `DATE`        | **No** | None | None | Term inception date |
 | `end_date`     | `DATE`        | **No** | None | `CHECK (end_date > start_date)` | Term conclusion date |
 | `status`       | `VARCHAR(15)` | **No** | `'UPCOMING'` | `CHECK (status IN ('UPCOMING', 'ACTIVE', 'COMPLETED'))`| Term state |
+| `created_at`   | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Term configuration creation timestamp |
+| `updated_at`   | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last term status update timestamp |
 
 *Constraint:* `UNIQUE (academic_year, term_number, program_type)` prevents duplicate term configurations.
 
@@ -1373,6 +1434,8 @@ Stores physical and virtual classroom inventory decoupled from course sections, 
 | `campus`    | `VARCHAR(20)` | **No** | None | `CHECK (campus IN ('CS1_NV_CU', 'CS2_LINH_TRUNG'))` | Campus location |
 | `room_capacity` | `INT`     | **No** | `40` | `CHECK (room_capacity > 0)` | Maximum physical occupant limit |
 | `room_type` | `VARCHAR(20)` | **No** | `'THEORY'` | `CHECK (room_type IN ('THEORY', 'COMPUTER_LAB', 'HALL'))` | Facility type |
+| `created_at`| `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Classroom record creation timestamp |
+| `updated_at`| `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last facility update timestamp |
 
 ---
 
@@ -1389,6 +1452,8 @@ Stores semester course offerings (lớp học phần). Granular Theory and integ
 | `current_enrolled` | `INT` | **No** | `0` | `CHECK (current_enrolled >= 0 AND current_enrolled <= max_capacity)` | Atomic cached enrolled counter |
 | `target_program_type`| `VARCHAR(20)`| **No** | `'STANDARD'` | `CHECK (target_program_type IN ('STANDARD', 'PROJECT_BASED'))` | Target track |
 | `is_cross_enrollment_allowed`| `BOOLEAN`| **No**| `FALSE` | None | Permits cross-track petition registration |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Section offering creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last section modification / enrollment update timestamp |
 
 *Constraints:*
 - `UNIQUE (semester_id, section_code)` ensures unique section codes within a term.
@@ -1404,7 +1469,8 @@ Models N:M co-teaching faculties and lab teaching assistants (TAs) assigned to s
 | `lecturer_id`| `UUID` | **No** | None | **PK, FK** $\rightarrow$ `academic.lecturers(id)` ON DELETE CASCADE| Assigned instructor / TA |
 | `role` | `VARCHAR(20)`| **No** | `'PRIMARY'`| `CHECK (role IN ('PRIMARY', 'CO_LECTURER', 'TA'))` | Teaching assignment role |
 | `is_primary` | `BOOLEAN` | **No** | `FALSE` | None | Flag designating lead grading signatory |
-| `assigned_at`| `TIMESTAMP`| **No** | `CURRENT_TIMESTAMP` | None | Assignment timestamp |
+| `created_at` | `TIMESTAMPTZ`| **No** | `CURRENT_TIMESTAMP` | None | Faculty assignment creation timestamp |
+| `updated_at` | `TIMESTAMPTZ`| **No** | `CURRENT_TIMESTAMP` | None | Last teaching role update timestamp |
 
 *Constraint:* `PRIMARY KEY (section_id, lecturer_id)` ensures unique faculty assignment per section.
 
@@ -1422,6 +1488,8 @@ Stores granular weekly meeting sessions linked directly to physical classrooms, 
 | `day_of_week` | `SMALLINT`| **No** | None | `CHECK (day_of_week BETWEEN 2 AND 8)` | 2 = Mon, 8 = Sun |
 | `start_period` | `SMALLINT`| **No** | None | `CHECK (start_period BETWEEN 1 AND 12)` | HCMUS Period slot (1–12) |
 | `end_period` | `SMALLINT`| **No** | None | `CHECK (end_period >= start_period)` | Ending period slot |
+| `created_at`  | `TIMESTAMPTZ`| **No** | `CURRENT_TIMESTAMP` | None | Schedule slot creation timestamp |
+| `updated_at`  | `TIMESTAMPTZ`| **No** | `CURRENT_TIMESTAMP` | None | Last schedule timetable adjustment timestamp |
 
 *Constraint:* `UNIQUE (classroom_id, day_of_week, start_period)` physically prevents room double-booking collisions.
 
@@ -1436,8 +1504,9 @@ Stores verified student enrollments for registered course sections (binding all 
 | `student_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.students(id)` | Enrolled student identity |
 | `section_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.sections(id)` | Enrolled course section |
 | `status` | `VARCHAR(15)` | **No** | `'ACTIVE'` | `CHECK (status IN ('ACTIVE', 'DROPPED', 'AUDIT'))` | Current enrollment state |
-| `registered_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Initial seat reservation timestamp |
 | `queue_job_id` | `VARCHAR(64)` | Yes | `NULL` | None | Correlated Redis Stream message identifier |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Initial course section enrollment timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last enrollment state update timestamp (e.g. status change to DROPPED) |
 
 *Constraint:* `UNIQUE (student_id, section_id)` ensures a student holds at most one active seat in any given course section.
 
@@ -1455,6 +1524,8 @@ Defines dynamic assessment rubric items and weighting formulas per section grade
 | `max_score` | `NUMERIC(4,1)`| **No** | `10.0` | `CHECK (max_score > 0)` | Maximum scale (default 10.0) |
 | `description` | `TEXT` | Yes | `NULL` | None | Detailed purpose, criteria & rubric instructions |
 | `display_order` | `SMALLINT` | **No** | `1` | `CHECK (display_order >= 1)` | Sequence column order on lecturer grade sheet |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Assessment rubric component creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last rubric weighting/description modification timestamp |
 
 *Constraint:* `UNIQUE (grade_sheet_id, component_name)` ensures unique assessment names per grade sheet.
 
@@ -1470,7 +1541,8 @@ Stores raw evaluated scores per student per assessment component, linked to veri
 | `enrollment_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.enrollments(id)` | Verified student enrollment record |
 | `score` | `NUMERIC(4,2)`| Yes | `NULL` | `CHECK (score >= 0.0)` | Raw score awarded (0.0 to max_score) |
 | `notes` | `TEXT` | Yes | `NULL` | None | Instructor remarks (bonus, late penalty, etc.) |
-| `updated_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Timestamp of latest evaluation entry |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Initial score entry creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Timestamp of latest evaluation entry |
 
 *Constraint:* `UNIQUE (grade_component_id, enrollment_id)` guarantees one score per student per assessment component.
 
@@ -1489,6 +1561,8 @@ Stores centralized examination sittings and physical venues per course section (
 | `start_time` | `TIME` | **No** | None | None | Exam session start time (e.g. `07:30`) |
 | `duration_minutes` | `SMALLINT` | **No** | `90` | `CHECK (duration_minutes > 0)` | Duration in minutes (e.g. 60, 90, 120) |
 | `notes` | `TEXT` | Yes | `NULL` | None | Special student instructions |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Examination schedule creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last exam sitting / room modification timestamp |
 
 *Constraint:* `UNIQUE (classroom_id, exam_date, start_time)` prevents double-booking a physical exam hall for overlapping examinations.
 
@@ -1502,7 +1576,8 @@ Supports multiple faculty proctors assigned to the same examination sitting hall
 | `exam_schedule_id` | `UUID` | **No** | None | **PK, FK** $\rightarrow$ `academic.exam_schedules(id)` ON DELETE CASCADE | Target examination sitting |
 | `lecturer_id` | `UUID` | **No** | None | **PK, FK** $\rightarrow$ `auth.accounts(id)` | Assigned proctoring faculty / staff |
 | `role` | `VARCHAR(20)` | **No** | `'ASSISTANT_PROCTOR'` | `CHECK (role IN ('CHIEF_PROCTOR', 'ASSISTANT_PROCTOR', 'SUPERVISOR'))` | Proctoring responsibility role (CBCT 1, CBCT 2) |
-| `assigned_at` | `TIMESTAMP` | **No** | `CURRENT_TIMESTAMP` | None | Proctor assignment timestamp |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Proctor assignment creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last proctoring role modification timestamp |
 
 *Constraint:* `PRIMARY KEY (exam_schedule_id, lecturer_id)` ensures a lecturer is assigned at most once to an exam room sitting.
 
@@ -1517,6 +1592,8 @@ Records student candidate registration and proctoring attendance for an examinat
 | `exam_schedule_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.exam_schedules(id)` ON DELETE CASCADE | Associated examination sitting |
 | `student_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.students(id)` | Candidate student identity |
 | `attendance_status` | `VARCHAR(20)` | **No** | `'SCHEDULED'` | `CHECK (attendance_status IN ('SCHEDULED', 'PRESENT', 'ABSENT', 'EXEMPT'))` | Proctoring attendance status |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Candidate exam roster creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last attendance status update timestamp |
 
 *Constraint:* `UNIQUE (exam_schedule_id, student_id)` ensures a student has at most one registration record per exam sitting.
 
@@ -1776,6 +1853,9 @@ The following design decisions record deliberate refinements between the initial
 9. **Refinement `CHG-09` — Explicit Project Scope Exclusions & 3-Week MoSCoW Alignment:**
    - *PA2 Baseline:* Scope boundaries lacked explicit negative constraints regarding institutional integration limits.
    - *PA3 Design Decision:* Formally documented in Section 1.2.3 and Section 1.2.5 that Portal67 operates on sample/seeded test data (zero live HCMUS production DB connection), employs mock VietQR webhooks (zero real financial processing), and issues digital demonstration proofs (no legally binding physical paperwork). Re-aligned feature delivery into a rigorous 3-week construction MoSCoW plan (Weeks 8–10) with F05 (Resource Management) deferred beyond MVP.
+10. **Refinement `CHG-10` — System-Wide Base Entity & Audit Timestamp Standardization:**
+    - *PA3 Baseline:* Individual tables employed ad-hoc creation attributes (e.g. `assigned_at`, `registered_at`, `linked_at`) while catalog tables lacked temporal audit fields.
+    - *PA3 Design Decision:* Standardized all database tables across `auth`, `academic`, `registration`, and `affairs` schemas with mandatory `created_at TIMESTAMPTZ` and `updated_at TIMESTAMPTZ` columns conforming to the Base Entity Pattern. Standardized PostgreSQL automatic trigger function (`trigger_set_timestamp`), Go domain structs (`BaseModel`), and ERD definitions, unlocking unified audit tracking, high-speed cursor-based pagination, and optimistic concurrency control.
 
 ---
 

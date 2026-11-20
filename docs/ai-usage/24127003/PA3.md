@@ -115,3 +115,92 @@
   - [x] Verified Mermaid diagram syntax for class diagram, sequence diagram, and ERD.
   - [x] Confirmed strict BCNF normalization across all updated database tables.
   - [x] Commit reference / PR link: `docs(design): refine exam data model to support multi-proctor and dynamic seating`
+
+---
+
+## Session Details (Session 4 — PA3 Template Sections 4.4, 4.5, and 5)
+
+### Task: Sequence, State Machine, and Data Design Report Content
+* **Tool Used:** OpenAI Codex
+* **Date:** 2026-11-20
+* **Objective:** Read the architecture documents and previous PA submissions, then prepare Markdown content matching the two supplied PA3 template screenshots.
+* **Input Prompt:**
+  ```text
+  read architect in all docs and previous PA in pa and the image i sent,
+  help me to create a markdown file for the 2 images for me to add in PA3
+  ```
+* **AI Output Summary:**
+  - Created [PA3_Sequence_State_and_Data_Design.md](../../../pa/PA3/PA3_Sequence_State_and_Data_Design.md) with the template's Sections 4.4, 4.5, and 5.1–5.3.
+  - Added five sequence diagrams for submitted PA2 UC-03, UC-10, UC-11, UC-14, and UC-15, each with alternative/error fragments and declared receiver operations.
+  - Added an operation class diagram, three lifecycle state diagrams, and three linked ERD views.
+  - Specified 46 relational tables, including the shared outbox structure in three service-owned schemas, and 25 proposed SQL indexes.
+  - Documented 3NF assumptions, intentional historical snapshots/projections, cross-schema constraints, and rules requiring transactional or service-level validation.
+  - Recorded refinements for asynchronous registration confirmation, atomic reservation/stream handoff, service ownership, integrated Theory/Practice enrollment, grade references, request states, and PA2 feature priorities.
+* **Human Review & Modifications (Critical):**
+  - **Status:** Pending team review; this entry does not assert human approval, deployed migrations, runtime test results, or submission.
+  - **Review focus:** Confirm configurable grade-conversion rules, window/drop policy, proctor-count rules, upload limits, Redis recovery, and the proposed normalization refinements before implementation.
+* **Verification Steps:**
+  - [x] Parsed all 12 Mermaid diagrams successfully with the Mermaid parser.
+  - [x] Parsed all 25 PostgreSQL index statements successfully with a SQL syntax parser.
+  - [x] Checked all 65 sequence calls against declared class operations.
+  - [x] Checked ERD entities, FK targets, index columns, template headings, and relative source links.
+  - [ ] Human review and final report integration.
+  - [ ] Database migration execution and runtime behavior tests after implementation.
+  - [ ] Commit reference / PR link: not created in this session.
+
+---
+
+## Session Details (Session 5 — Review Against Recorded PA2 Feedback)
+
+### Task: Verify and Correct the PA3 Report Insertion
+* **Tool Used:** OpenAI Codex
+* **Date:** 2026-11-20
+* **Objective:** Review the created Markdown against the PA2 feedback already recorded by AGY and correct conflicting or incomplete report content.
+* **Input Prompt Summary:** Review AGY's feedback-related changes and fix the generated PA3 Markdown wherever it does not agree with the feedback. The user confirmed using the feedback already recorded in the repository.
+* **Sources Reviewed:** Sessions 2–3 of this log; `REV-01`–`REV-06`, `CHG-08`, `CHG-09`, and the exam/UI specifications in `docs/design/PA3_System_Design_Specification.md`; the submitted PA2 baseline.
+* **AI Output Summary:**
+  - Updated [PA3_Sequence_State_and_Data_Design.md](../../../pa/PA3/PA3_Sequence_State_and_Data_Design.md) with an explicit feedback-coverage matrix and PA1/PA2 feature mapping.
+  - Added the `FR-TT-03` / `CHG-08` examination contract, declared exam-service/entity operations, and the recorded minimum-two-proctor publication rule; retained dynamic MSSV seating.
+  - Added concrete interface error/recovery outcomes and a proposed three-week allocation preserving submitted PA2 priorities.
+  - Corrected sequence interactions to stop on authorization and failed review-start transactions, derive a verified principal in the HTTP adapter, and record a durable rejection before enrollment compensation/acknowledgment.
+  - Distinguished proposed accessibility behavior from empirical accessibility PASS claims and actual team sign-off evidence.
+* **Human Review & Modifications (Critical):**
+  - **Confirmed input:** The user selected the feedback already recorded in the repository as the review source.
+  - **Review status:** Final content approval, implemented-screen audits, and runtime validation remain pending. This session does not assert that the older architecture's audit results or team-signature assertions were independently verified.
+* **Verification Steps:**
+  - [x] All 12 Mermaid diagrams parsed successfully after edits.
+  - [x] All 25 PostgreSQL index statements passed syntax parsing.
+  - [x] All 66 sequence calls match declared operations.
+  - [x] All 46 table specifications, FK targets, ERD endpoints, index columns, template headings, and file-link targets passed consistency checks.
+  - [x] `git diff --check` passed.
+  - [ ] Runtime migrations, transaction/failure tests, and accessibility measurements after implementation.
+  - [ ] Human approval and final PA3 report integration.
+  - [ ] Commit / PR: not created in this session.
+
+---
+
+## Session Details (Session 4 — System-Wide Base Entity & Audit Timestamp Standardization)
+
+### Task: Database Auditability & Base Entity Standardization (Option 1)
+* **Tool Used:** Antigravity (Gemini 3.8 Flash High)  
+* **Date:** 2026-11-20  
+* **Objective:** Establish the Base Entity and Audit Timestamp Pattern uniformly across the entire Portal67 relational database schema in `PA3_System_Design_Specification.md`:
+  1. **Mandatory Audit Columns:** Guarantee that every single table across all schema namespaces (`auth`, `academic`, `registration`, `affairs`) includes both:
+     - `created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP`: Immutable physical creation timestamp.
+     - `updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP`: Managed via PostgreSQL trigger for optimistic locking and change tracking.
+  2. **Replacement of Ad-hoc Creation Fields:** Standardize specific creation timestamps (`assigned_at` in `section_lecturers` and `exam_proctors`, `registered_at` in `enrollments`, `linked_at` in `oauth_identities`) into unified `created_at` and `updated_at` columns.
+  3. **Backend Domain Struct Alignment:** Introduce `BaseModel` struct embedding in Go domain interfaces and update TypeScript models.
+  4. **PostgreSQL Trigger Automation:** Specify standard database trigger function `trigger_set_timestamp()` to auto-update `updated_at` on row modifications.
+
+* **AI Output & Human Modifications Applied:**
+  - **Section 2.4 (Component & Interface Specifications):** Added `BaseModel` struct containing `ID`, `CreatedAt`, and `UpdatedAt`. Embedded `BaseModel` into all domain entities (`Account`, `OAuthIdentity`, `AcademicProgram`, `Semester`, `Classroom`, `Section`, `GradeComponent`, `StudentGrade`, `ExamSchedule`, `StudentExam`), and standardized `CreatedAt`/`UpdatedAt` on composite junction entities (`SectionLecturer`, `ExamProctor`, `PasswordCredential`).
+  - **Section 3.1 (Relational ERD):** Added `timestamptz created_at` and `timestamptz updated_at` to all entity definitions within the Crow's Foot diagram.
+  - **Section 3.2 (Detailed Table Specifications):** Added Base Entity architectural callout box and PostgreSQL trigger function `trigger_set_timestamp()`. Updated all 15 table specifications with `created_at TIMESTAMPTZ` and `updated_at TIMESTAMPTZ`.
+  - **Section 5.2 (Requirements Evolution Log):** Logged `CHG-10` documenting system-wide audit timestamp standardization.
+
+* **Verification Steps:**
+  - [x] Verified all 15 tables in Section 3.2 contain both `created_at` and `updated_at`.
+  - [x] Verified zero syntax or rendering errors in Mermaid ERD diagram.
+  - [x] Verified Go domain structs inherit `BaseModel` consistently.
+  - [x] Commit reference / PR link: `docs(design): standardize base entity audit timestamps across all tables`
+
