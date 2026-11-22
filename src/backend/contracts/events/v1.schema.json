@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Portal67 domain event (version 1)",
+  "type": "object",
+  "required": ["id", "type", "schema_version", "occurred_at", "producer", "aggregate", "trace_id", "actor_id", "data"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "type": {
+      "enum": [
+        "identity.user.upserted", "identity.user.deactivated",
+        "academic.term.upserted", "academic.course.upserted", "academic.section.upserted",
+        "academic.meeting.upserted", "academic.meeting.deleted", "academic.exam.upserted", "academic.exam.deleted",
+        "academic.grade.recorded", "academic.grade.orphaned", "academic.grade.snapshot",
+        "registration.enrollment.created", "registration.enrollment.cancelled", "registration.enrollment.snapshot",
+        "affairs.document_request.submitted", "affairs.document_request.decided", "affairs.tuition.charge.added",
+        "affairs.tuition.payment.recorded", "affairs.tuition.payment.updated", "affairs.tuition.payment.voided"
+      ]
+    },
+    "schema_version": { "const": 1 },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "producer": { "enum": ["identity-service", "academic-service", "registration-service", "affairs-service"] },
+    "aggregate": {
+      "type": "object",
+      "required": ["type", "id", "version"],
+      "properties": {
+        "type": { "enum": ["user", "term", "course", "section", "meeting", "exam", "grade", "enrollment", "document_request", "charge", "payment"] },
+        "id": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "version": { "$ref": "#/$defs/positiveInteger" }
+      }
+    },
+    "trace_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "actor_id": { "type": "integer", "minimum": 0 },
+    "data": { "type": "object" }
+  },
+  "$defs": {
+    "positiveInteger": { "type": "integer", "minimum": 1 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "enrollment": {
+      "required": ["enrollment_id", "student_id", "section_id", "status", "registered_at", "version"],
+      "properties": {
+        "enrollment_id": { "$ref": "#/$defs/positiveInteger" },
+        "student_id": { "$ref": "#/$defs/positiveInteger" },
+        "section_id": { "$ref": "#/$defs/positiveInteger" },
+        "status": { "enum": ["enrolled", "cancelled"] },
+        "registered_at": { "$ref": "#/$defs/timestamp" },
+        "cancelled_at": { "anyOf": [{ "$ref": "#/$defs/timestamp" }, { "type": "null" }] },
+        "version": { "$ref": "#/$defs/positiveInteger" }
+      },
+      "if": { "properties": { "status": { "const": "cancelled" } } },
+      "then": {
+        "required": ["cancelled_at"],
+        "properties": { "cancelled_at": { "$ref": "#/$defs/timestamp" } }
+      }
+    },
+    "directory": {
+      "required": ["id", "institutional_id", "full_name", "email", "role", "is_active", "version"],
+      "properties": {
+        "id": { "$ref": "#/$defs/positiveInteger" },
+        "institutional_id": { "type": ["string", "null"] },
+        "full_name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "minLength": 1 },
+        "role": { "enum": ["student", "lecturer", "staff"] },
+        "is_active": { "type": "boolean" },
+        "version": { "$ref": "#/$defs/positiveInteger" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "pattern": "^identity[.]" } } },
+      "then": { "properties": { "producer": { "const": "identity-service" }, "data": { "$ref": "#/$defs/directory" } } }
+    },
+    {
+      "if": { "properties": { "type": { "pattern": "^registration[.]" } } },
+      "then": { "properties": { "producer": { "const": "registration-service" }, "data": { "$ref": "#/$defs/enrollment" } } }
+    },
+    {
+      "if": { "properties": { "type": { "pattern": "^academic[.]" } } },
+      "then": { "properties": { "producer": { "const": "academic-service" } } }
+    },
+    {
+      "if": { "properties": { "type": { "pattern": "^academic[.](term|course|section|exam|meeting)[.]" } } },
+      "then": {
+        "properties": {
+          "data": {
+            "required": ["id", "version"],
+            "properties": { "id": { "$ref": "#/$defs/positiveInteger" }, "version": { "$ref": "#/$defs/positiveInteger" } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "academic.term.upserted" } } },
+      "then": { "properties": { "data": { "required": ["code", "name", "starts_on", "ends_on", "registration_opens_at", "registration_closes_at", "grading_closes_at"] } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "academic.section.upserted" } } },
+      "then": { "properties": { "data": { "required": ["course_id", "term_id", "lecturer_id", "section_code", "capacity", "course_code", "course_name", "credits", "lecturer_name", "meetings"] } } }
+    },
+    {
+      "if": { "properties": { "type": { "pattern": "^academic[.]grade[.]" } } },
+      "then": { "properties": { "data": { "required": ["enrollment_id"], "properties": { "enrollment_id": { "$ref": "#/$defs/positiveInteger" } } } } }
+    },
+    {
+      "if": { "properties": { "type": { "enum": ["academic.grade.recorded", "academic.grade.orphaned"] } } },
+      "then": { "properties": { "data": { "required": ["student_id", "section_id", "score", "letter_grade", "graded_by", "version"] } } }
+    },
+    {
+      "if": { "properties": { "type": { "pattern": "^affairs[.]" } } },
+      "then": {
+        "properties": {
+          "producer": { "const": "affairs-service" },
+          "data": {
+            "required": ["id", "student_id"],
+            "properties": { "id": { "$ref": "#/$defs/positiveInteger" }, "student_id": { "$ref": "#/$defs/positiveInteger" } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "pattern": "^affairs[.]document_request[.]" } } },
+      "then": { "properties": { "data": { "required": ["request_type", "status", "submitted_at"] } } }
+    },
+    {
+      "if": { "properties": { "type": { "pattern": "^affairs[.]tuition[.]" } } },
+      "then": { "properties": { "data": { "required": ["term_id", "amount_vnd"] } } }
+    }
+  ]
+}
