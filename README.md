@@ -2,7 +2,8 @@
 
 A course prototype with a SvelteKit frontend, Go API, and PostgreSQL sample records.
 
-- [Run the frontend and backend](src/frontend/README.md)
+- [Run the prototype v2 backend](src/backend/README.md)
+- [Run the frontend](src/frontend/README.md)
 - [Frontend structure and contribution guide](src/frontend/docs/architecture.md)
 - [Zod, Superforms, and server migration](src/frontend/docs/migration.md)
 - [Experience design](docs/design/portal67-experience-design.md)

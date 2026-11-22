@@ -1,3 +1,18 @@
+x-prototype-environment: &prototype-environment
+  REDIS_URL: ${REDIS_URL:-redis://redis-v2:6379/0}
+  REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-p67:v2}
+  IDENTITY_PUBLIC_KEYS: ${IDENTITY_PUBLIC_KEYS:-}
+
+x-prototype-service: &prototype-service
+  profiles: [prototype-v2]
+  restart: unless-stopped
+  networks: [prototype-services]
+  depends_on:
+    migrate-v2:
+      condition: service_completed_successfully
+    redis-v2:
+      condition: service_healthy
+
 services:
   db:
     image: postgres:18-alpine
@@ -9,6 +24,7 @@ services:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+    networks: [default, prototype-services]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -16,5 +32,122 @@ services:
       retries: 10
       start_period: 5s
 
+  redis-v2:
+    profiles: [prototype-v2]
+    image: redis:7.2-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory-policy", "noeviction"]
+    networks: [prototype-services]
+    volumes: [redis_v2_data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate-v2:
+    profiles: [prototype-v2]
+    build:
+      context: ./src/backend
+      args: {SERVICE: portalctl}
+    command: [migrate]
+    networks: [prototype-services]
+    environment:
+      PORTAL67_ADMIN_DATABASE_URL: ${PORTAL67_ADMIN_DATABASE_URL:-postgres://portal67:portal67_dev@db:5432/portal67?sslmode=disable}
+      PORTAL67_SEED_DEMO: ${PORTAL67_SEED_DEMO:-1}
+      IDENTITY_DATABASE_URL: &identity-database ${IDENTITY_DATABASE_URL:-postgres://portal67_identity:identity_dev@db:5432/portal67?sslmode=disable}
+      ACADEMIC_DATABASE_URL: &academic-database ${ACADEMIC_DATABASE_URL:-postgres://portal67_academic:academic_dev@db:5432/portal67?sslmode=disable}
+      REGISTRATION_DATABASE_URL: &registration-database ${REGISTRATION_DATABASE_URL:-postgres://portal67_registration:registration_dev@db:5432/portal67?sslmode=disable}
+      AFFAIRS_DATABASE_URL: &affairs-database ${AFFAIRS_DATABASE_URL:-postgres://portal67_affairs:affairs_dev@db:5432/portal67?sslmode=disable}
+      NOTIFICATION_DATABASE_URL: &notification-database ${NOTIFICATION_DATABASE_URL:-postgres://portal67_notification:notification_dev@db:5432/portal67?sslmode=disable}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  identity-service:
+    <<: *prototype-service
+    build:
+      context: ./src/backend
+      args: {SERVICE: identity-service}
+    environment:
+      <<: *prototype-environment
+      DATABASE_URL: *identity-database
+      SERVICE_ADDR: 0.0.0.0:8081
+      TRUSTED_PROXY_CIDRS: 172.30.67.10/32
+
+  academic-service:
+    <<: *prototype-service
+    build:
+      context: ./src/backend
+      args: {SERVICE: academic-service}
+    environment:
+      <<: *prototype-environment
+      DATABASE_URL: *academic-database
+      SERVICE_ADDR: 0.0.0.0:8082
+
+  affairs-service:
+    <<: *prototype-service
+    build:
+      context: ./src/backend
+      args: {SERVICE: affairs-service}
+    environment:
+      <<: *prototype-environment
+      DATABASE_URL: *affairs-database
+      SERVICE_ADDR: 0.0.0.0:8083
+
+  notification-service:
+    <<: *prototype-service
+    build:
+      context: ./src/backend
+      args: {SERVICE: notification-service}
+    environment:
+      <<: *prototype-environment
+      DATABASE_URL: *notification-database
+      SERVICE_ADDR: 0.0.0.0:8084
+
+  registration-service:
+    <<: *prototype-service
+    build:
+      context: ./src/backend
+      args: {SERVICE: registration-service}
+    environment:
+      <<: *prototype-environment
+      DATABASE_URL: *registration-database
+      SERVICE_ADDR: 0.0.0.0:8085
+
+  gateway:
+    <<: *prototype-service
+    build:
+      context: ./src/backend
+      args: {SERVICE: gateway}
+    environment:
+      <<: *prototype-environment
+      IDENTITY_PUBLIC_KEYS: ""
+      IDENTITY_SIGNING_KEY: ${IDENTITY_SIGNING_KEY:-}
+      IDENTITY_URL: http://identity-service:8081
+      ACADEMIC_URL: http://academic-service:8082
+      AFFAIRS_URL: http://affairs-service:8083
+      NOTIFICATION_URL: http://notification-service:8084
+      REGISTRATION_URL: http://registration-service:8085
+      SERVICE_ADDR: 0.0.0.0:8080
+      TRUSTED_PROXY_CIDRS: ${GATEWAY_TRUSTED_PROXY_CIDRS:-}
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
+    networks:
+      prototype-services:
+        ipv4_address: 172.30.67.10
+    depends_on:
+      - identity-service
+      - academic-service
+      - affairs-service
+      - notification-service
+      - registration-service
+
 volumes:
   postgres_data:
+  redis_v2_data:
+
+networks:
+  prototype-services:
+    ipam:
+      config:
+        - subnet: 172.30.67.0/24
