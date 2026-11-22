@@ -57,11 +57,10 @@ func (r *Relay) Flush(ctx context.Context) (int, error) {
 		Seq int64
 		Message
 	}
-	const relayLock = 0x50363745564E54 // P67EVNT
 	var published int
 	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
 		var locked bool
-		if err := tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock($1)", int64(relayLock)).Scan(&locked); err != nil || !locked {
+		if err := tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock(hashtextextended(current_schema()::text, 6722))").Scan(&locked); err != nil || !locked {
 			return err
 		}
 		rows, err := tx.Query(ctx, `
@@ -96,4 +95,18 @@ func (r *Relay) Flush(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("flush event outbox: %w", err)
 	}
 	return published, nil
+}
+
+// Replay queues stored events again with their original event IDs.
+func Replay(ctx context.Context, pool *pgxpool.Pool, since time.Time) (int64, error) {
+	var count int64
+	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended(current_schema()::text, 6722))"); err != nil {
+			return err
+		}
+		tag, err := tx.Exec(ctx, "UPDATE outbox SET published_at = NULL WHERE published_at IS NOT NULL AND created_at >= $1", since)
+		count = tag.RowsAffected()
+		return err
+	})
+	return count, err
 }

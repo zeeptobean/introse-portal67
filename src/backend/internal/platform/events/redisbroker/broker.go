@@ -45,7 +45,7 @@ func (b *Broker) Publish(ctx context.Context, batch []events.Message) error {
 	_, err := b.client.Pipelined(ctx, func(pipe redis.Pipeliner) error {
 		for _, message := range batch {
 			pipe.XAdd(ctx, &redis.XAddArgs{
-				Stream: b.prefix + ":ev:" + message.Stream,
+				Stream: b.streamKey(message.Stream),
 				Values: []string{"type", message.Type, "payload", message.Payload},
 			})
 		}
