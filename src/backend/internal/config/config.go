@@ -36,15 +36,22 @@ func Load() (Config, error) {
 	if cfg.APIAddr == "" {
 		cfg.APIAddr = "127.0.0.1:8080"
 	}
+	trusted, err := TrustedProxyCIDRs()
+	cfg.TrustedProxyCIDRs = trusted
+	return cfg, err
+}
+
+func TrustedProxyCIDRs() ([]netip.Prefix, error) {
+	var cidrs []netip.Prefix
 	for _, raw := range strings.Split(os.Getenv("TRUSTED_PROXY_CIDRS"), ",") {
 		if strings.TrimSpace(raw) == "" {
 			continue
 		}
 		prefix, err := netip.ParsePrefix(strings.TrimSpace(raw))
 		if err != nil {
-			return Config{}, fmt.Errorf("TRUSTED_PROXY_CIDRS: %w", err)
+			return nil, fmt.Errorf("TRUSTED_PROXY_CIDRS: %w", err)
 		}
-		cfg.TrustedProxyCIDRs = append(cfg.TrustedProxyCIDRs, prefix)
+		cidrs = append(cidrs, prefix)
 	}
-	return cfg, nil
+	return cidrs, nil
 }

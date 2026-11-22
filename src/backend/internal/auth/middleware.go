@@ -1,13 +1,30 @@
 package auth
 
 import (
+	"crypto/ed25519"
 	"errors"
 	"log/slog"
 	"net/http"
 	"slices"
 
 	"github.com/zeeptobean/introse-portal67/src/backend/internal/httpx"
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/platform/authn"
 )
+
+func RequireServiceIdentity(keys []ed25519.PublicKey, audience string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			identity, err := authn.Verify(keys, r.Header.Get(authn.IdentityHeader), audience)
+			role := Role(identity.Role)
+			if err != nil || identity.UserID <= 0 || (role != RoleStaff && role != RoleLecturer && role != RoleStudent) {
+				httpx.NotLoggedIn(w)
+				return
+			}
+			user := User{ID: identity.UserID, Role: role, IsActive: true}
+			next.ServeHTTP(w, r.WithContext(withUser(r.Context(), user)))
+		})
+	}
+}
 
 // RequireLogin loads the active user for the session and stores it in the
 // request context, responding 401 when there is none.

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"math"
@@ -12,6 +13,7 @@ import (
 	"github.com/alexedwards/scs/v2"
 
 	"github.com/zeeptobean/introse-portal67/src/backend/internal/httpx"
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/platform/authn"
 )
 
 const sessionUserIDKey = "userID"
@@ -26,10 +28,16 @@ const (
 
 // Handler exposes HTTP endpoints for login, logout, and account identity.
 type Handler struct {
-	service      *Service
-	sessions     *scs.SessionManager
-	loginByIP    *limiter
-	loginByEmail *limiter
+	service            *Service
+	sessions           *scs.SessionManager
+	loginByIP          *limiter
+	loginByEmail       *limiter
+	SharedLoginLimiter SharedLoginLimiter
+}
+
+type SharedLoginLimiter interface {
+	Allow(ctx context.Context, bucket, key string, limit int, window time.Duration) (bool, time.Duration, error)
+	Reset(ctx context.Context, bucket, key string)
 }
 
 func NewHandler(service *Service, sessions *scs.SessionManager) *Handler {
@@ -47,7 +55,8 @@ type loginRequest struct {
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	if ok, retry := h.loginByIP.allow(clientIP(r)); !ok {
+	ctx := r.Context()
+	if ok, retry := h.allowLogin(ctx, "ip", ClientIP(r), loginAttemptsPerIP, h.loginByIP); !ok {
 		tooManyAttempts(w, retry)
 		return
 	}
@@ -61,12 +70,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	emailKey := NormalizeEmail(in.Email)
-	if ok, retry := h.loginByEmail.allow(emailKey); !ok {
+	if ok, retry := h.allowLogin(ctx, "email", emailKey, loginAttemptsPerEmail, h.loginByEmail); !ok {
 		tooManyAttempts(w, retry)
 		return
 	}
 
-	ctx := r.Context()
 	u, err := h.service.Authenticate(ctx, in.Email, in.Password)
 	switch {
 	case errors.Is(err, ErrInvalidCredentials):
@@ -81,6 +89,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.loginByEmail.reset(emailKey)
+	if h.SharedLoginLimiter != nil {
+		h.SharedLoginLimiter.Reset(ctx, "email", emailKey)
+	}
 
 	// A fresh token on privilege change prevents session fixation.
 	if err := h.sessions.RenewToken(ctx); err != nil {
@@ -92,9 +103,27 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, u)
 }
 
-// clientIP uses a verified proxy address when TrustClientIP supplied one;
+func (h *Handler) allowLogin(ctx context.Context, bucket, key string, limit int, local *limiter) (bool, time.Duration) {
+	if h.SharedLoginLimiter != nil {
+		allowed, retry, err := h.SharedLoginLimiter.Allow(ctx, bucket, key, limit, loginWindow)
+		if err == nil {
+			return allowed, retry
+		}
+	}
+	return local.allow(key)
+}
+
+func (h *Handler) Resolve(w http.ResponseWriter, r *http.Request) {
+	user, _ := UserFromContext(r.Context())
+	httpx.WriteJSON(w, http.StatusOK, authn.Session{
+		Identity:  authn.Identity{UserID: user.ID, Role: string(user.Role)},
+		ExpiresAt: h.sessions.Deadline(r.Context()),
+	})
+}
+
+// ClientIP uses a verified proxy address when TrustClientIP supplied one;
 // otherwise it uses the immediate connection. Raw forwarding headers are ignored.
-func clientIP(r *http.Request) string {
+func ClientIP(r *http.Request) string {
 	if address, ok := r.Context().Value(clientIPKey{}).(string); ok {
 		return address
 	}

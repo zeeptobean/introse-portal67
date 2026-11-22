@@ -24,7 +24,7 @@ func TestTrustedClientIP(t *testing.T) {
 				proxies = []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}
 			}
 			handler := TrustClientIP(proxies, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if got := clientIP(r); got != tc.want {
+				if got := ClientIP(r); got != tc.want {
 					t.Errorf("clientIP = %q, want %q", got, tc.want)
 				}
 			}))

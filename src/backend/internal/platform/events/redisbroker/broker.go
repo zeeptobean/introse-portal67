@@ -2,13 +2,12 @@ package redisbroker
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 
 	"github.com/zeeptobean/introse-portal67/src/backend/internal/platform/events"
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/platform/redisx"
 )
 
 type Broker struct {
@@ -17,20 +16,14 @@ type Broker struct {
 }
 
 func Open(rawURL, prefix string) (*Broker, error) {
-	options, err := redis.ParseURL(rawURL)
-	if err != nil || options.Network != "tcp" {
-		// Parsing errors can include the URL, including its credentials.
-		return nil, errors.New("REDIS_URL must be a valid redis:// or rediss:// URL")
+	client, err := redisx.Open(rawURL)
+	if err != nil {
+		return nil, err
 	}
 	if prefix == "" {
 		prefix = "p67"
 	}
-	options.DialTimeout = 2 * time.Second
-	options.ReadTimeout = 2 * time.Second
-	options.WriteTimeout = 2 * time.Second
-	options.ContextTimeoutEnabled = true
-	options.MaxRetries = -1 // The outbox owns retries.
-	return &Broker{client: redis.NewClient(options), prefix: prefix}, nil
+	return &Broker{client: client, prefix: prefix}, nil
 }
 
 func (b *Broker) Close() error {
