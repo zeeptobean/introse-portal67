@@ -51,14 +51,14 @@ func TestRedisConsumerDeduplicatesReplay(t *testing.T) {
 	}
 	calls := 0
 	consumer := events.Consumer{
-		Pool: pool, Broker: broker, Stream: "registration", Group: "academic", Worker: "test",
-		Handle: func(_ context.Context, _ pgx.Tx, event events.Event) error {
+		Broker: broker, Stream: "registration", Group: "academic", Worker: "test",
+		Apply: events.Transactional(pool, "registration", func(_ context.Context, _ pgx.Tx, event events.Event) error {
 			if event.Type != "registration.enrollment.created" {
 				t.Errorf("unexpected event type %s", event.Type)
 			}
 			calls++
 			return nil
-		},
+		}),
 	}
 	if err := broker.CreateGroup(ctx, consumer.Stream, consumer.Group); err != nil {
 		t.Fatal(err)

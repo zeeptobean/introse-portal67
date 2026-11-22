@@ -38,6 +38,11 @@ func WithTraceID(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, traceIDKey{}, traceID)
 }
 
+func TraceID(ctx context.Context) string {
+	traceID, _ := ctx.Value(traceIDKey{}).(string)
+	return traceID
+}
+
 // Add saves the event in the caller's business transaction.
 func Add(ctx context.Context, tx pgx.Tx, stream string, event Event) error {
 	id, err := uuid.NewV7()
@@ -45,7 +50,7 @@ func Add(ctx context.Context, tx pgx.Tx, stream string, event Event) error {
 		return fmt.Errorf("generate event ID: %w", err)
 	}
 	event.ID = id
-	event.TraceID, _ = ctx.Value(traceIDKey{}).(string)
+	event.TraceID = TraceID(ctx)
 	if event.TraceID == "" {
 		event.TraceID = id.String()
 	}

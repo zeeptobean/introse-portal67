@@ -28,12 +28,25 @@ type Subscriber interface {
 type Handler func(context.Context, pgx.Tx, Event) error
 
 type Consumer struct {
-	Pool   *pgxpool.Pool
 	Broker Subscriber
 	Stream string
 	Group  string
 	Worker string
-	Handle Handler
+	Apply  func(context.Context, Event) error
+}
+
+func Transactional(pool *pgxpool.Pool, stream string, handle Handler) func(context.Context, Event) error {
+	return func(ctx context.Context, event Event) error {
+		return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+			tag, err := tx.Exec(ctx, `
+				INSERT INTO inbox (event_id, stream, type) VALUES ($1, $2, $3)
+				ON CONFLICT (event_id) DO NOTHING`, event.ID.String(), stream, event.Type)
+			if err != nil || tag.RowsAffected() == 0 {
+				return err
+			}
+			return handle(ctx, tx, event)
+		})
+	}
 }
 
 func (c Consumer) Run(ctx context.Context) {
@@ -88,13 +101,7 @@ func (c Consumer) process(ctx context.Context, delivery Delivery) error {
 	if event.ID == uuid.Nil || event.Type == "" || event.Type != delivery.Type || event.SchemaVersion < 1 {
 		return fmt.Errorf("invalid event envelope")
 	}
-	return pgx.BeginFunc(ctx, c.Pool, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `
-			INSERT INTO inbox (event_id, stream, type) VALUES ($1, $2, $3)
-			ON CONFLICT (event_id) DO NOTHING`, event.ID.String(), c.Stream, event.Type)
-		if err != nil || tag.RowsAffected() == 0 {
-			return err
-		}
-		return c.Handle(ctx, tx, event)
-	})
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	return c.Apply(ctx, event)
 }

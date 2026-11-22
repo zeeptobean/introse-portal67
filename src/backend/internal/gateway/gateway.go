@@ -32,7 +32,7 @@ type Gateway struct {
 	prefix   string
 }
 
-func New(key ed25519.PrivateKey, endpoints map[string]string, legacy string, trusted []netip.Prefix, cache *redis.Client, prefix string) (http.Handler, error) {
+func New(key ed25519.PrivateKey, endpoints map[string]string, trusted []netip.Prefix, cache *redis.Client, prefix string) (http.Handler, error) {
 	identity, err := parseOrigin(endpoints[routing.Identity])
 	if err != nil {
 		return nil, fmt.Errorf("IDENTITY_URL: %w", err)
@@ -48,13 +48,6 @@ func New(key ed25519.PrivateKey, endpoints map[string]string, legacy string, tru
 	upstreams := map[string]*url.URL{}
 	for service, routes := range routing.Routes {
 		upstream := endpoints[service]
-		fallback := upstream == "" && service != routing.Notification && legacy != ""
-		if fallback {
-			upstream = legacy
-		}
-		if upstream == "" && service == routing.Notification {
-			continue
-		}
 		target, err := parseOrigin(upstream)
 		if err != nil {
 			return nil, fmt.Errorf("%s upstream: %w", service, err)
@@ -62,7 +55,7 @@ func New(key ed25519.PrivateKey, endpoints map[string]string, legacy string, tru
 		upstreams[upstream] = target
 		proxy := g.proxy(target, service == routing.Identity)
 		var handler http.Handler = proxy
-		if service != routing.Identity && !fallback {
+		if service != routing.Identity {
 			handler = g.authenticate(service, proxy)
 		}
 		for _, route := range routes {
@@ -164,7 +157,8 @@ func (g *Gateway) resolve(ctx context.Context, cookie *http.Cookie) (authn.Sessi
 			if value == "revoked" {
 				return session, errNoSession
 			}
-			if json.Unmarshal([]byte(value), &session) == nil && time.Now().Before(session.ExpiresAt) {
+			if json.Unmarshal([]byte(value), &session) == nil && time.Now().Before(session.ExpiresAt) &&
+				g.versionCurrent(ctx, session) {
 				return session, nil
 			}
 		}

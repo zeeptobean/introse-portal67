@@ -18,6 +18,7 @@ type Identity struct {
 
 type Session struct {
 	Identity
+	Version   int64     `json:"version"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
 

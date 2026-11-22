@@ -42,14 +42,10 @@ func TestGatewayResolvesSessionAndSignsForTheRouteOwner(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})))
 	defer academic.Close()
-	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(authn.IdentityHeader) != "" {
-			t.Error("legacy received an untrusted service identity header")
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer legacy.Close()
-	gateway, err := New(private, map[string]string{routing.Identity: identity.URL, routing.Academic: academic.URL}, legacy.URL, nil, nil, "")
+	gateway, err := New(private, map[string]string{
+		routing.Identity: identity.URL, routing.Academic: academic.URL, routing.Registration: academic.URL,
+		routing.Affairs: academic.URL, routing.Notification: academic.URL,
+	}, nil, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +57,7 @@ func TestGatewayResolvesSessionAndSignsForTheRouteOwner(t *testing.T) {
 		{"/api/me/results", "valid", http.StatusNoContent},
 		{"/api/me/results", "expired", http.StatusUnauthorized},
 		{"/api/me/results", "", http.StatusUnauthorized},
-		{"/api/sections", "", http.StatusNoContent},
+		{"/api/sections", "", http.StatusUnauthorized},
 		{"/internal/sessions/resolve", "valid", http.StatusNotFound},
 	} {
 		r := httptest.NewRequest(http.MethodGet, tc.path, nil)

@@ -14,7 +14,12 @@ import (
 
 // Store holds the database dependency for course registration, scheduling, and academic results.
 type Store struct {
-	db *pgxpool.Pool
+	db                *pgxpool.Pool
+	useSeatProjection bool
+}
+
+func NewRegistrationStore(db *pgxpool.Pool) *Store {
+	return &Store{db: db, useSeatProjection: true}
 }
 
 func NewStore(db *pgxpool.Pool) *Store {
@@ -167,11 +172,18 @@ type lockedSection struct {
 // is held so concurrent registrations cannot exceed the capacity.
 func (s *Store) lockSection(ctx context.Context, tx pgx.Tx, id int64) (lockedSection, error) {
 	var sec lockedSection
-	err := tx.QueryRow(ctx, `
+	query := `
 		SELECT s.course_id, s.term_id, s.lecturer_id, s.capacity, t.registration_opens_at, t.registration_closes_at
 		FROM sections s JOIN terms t ON t.id = s.term_id
 		WHERE s.id = $1
-		FOR UPDATE OF s`, id).
+		FOR UPDATE OF s`
+	if s.useSeatProjection {
+		query = `
+			SELECT s.course_id, s.term_id, s.lecturer_id, seats.capacity, t.registration_opens_at, t.registration_closes_at
+			FROM section_seats seats JOIN sections s ON s.id = seats.section_id JOIN terms t ON t.id = s.term_id
+			WHERE seats.section_id = $1 FOR UPDATE OF seats`
+	}
+	err := tx.QueryRow(ctx, query, id).
 		Scan(&sec.CourseID, &sec.TermID, &sec.LecturerID, &sec.Capacity,
 			&sec.RegistrationOpensAt, &sec.RegistrationClosesAt)
 	if err != nil {
@@ -213,8 +225,11 @@ func (s *Store) enrolledInCourse(ctx context.Context, tx pgx.Tx, studentID, cour
 
 func (s *Store) countActive(ctx context.Context, tx pgx.Tx, sectionID int64) (int32, error) {
 	var n int32
-	err := tx.QueryRow(ctx, "SELECT count(*)::int FROM enrollments WHERE section_id = $1 AND status = 'enrolled'",
-		sectionID).Scan(&n)
+	query := "SELECT count(*)::int FROM enrollments WHERE section_id = $1 AND status = 'enrolled'"
+	if s.useSeatProjection {
+		query = "SELECT active_count FROM section_seats WHERE section_id = $1"
+	}
+	err := tx.QueryRow(ctx, query, sectionID).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count enrollments in section %d: %w", sectionID, err)
 	}
@@ -492,7 +507,8 @@ func (s *Store) roster(ctx context.Context, sectionID int64) ([]RosterEntry, err
 func (s *Store) activeEnrollmentIDs(ctx context.Context, tx pgx.Tx, sectionID int64, ids []int64) (map[int64]bool, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT id FROM enrollments
-		WHERE section_id = $1 AND status = 'enrolled' AND id = ANY($2)`, sectionID, ids)
+		WHERE section_id = $1 AND status = 'enrolled' AND id = ANY($2)
+		ORDER BY id FOR UPDATE`, sectionID, ids)
 	if err != nil {
 		return nil, fmt.Errorf("find section enrollments: %w", err)
 	}

@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/alexedwards/scs/v2"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/zeeptobean/introse-portal67/src/backend/internal/httpx"
-	"github.com/zeeptobean/introse-portal67/src/backend/internal/platform/authn"
 )
 
 const sessionUserIDKey = "userID"
@@ -114,11 +114,24 @@ func (h *Handler) allowLogin(ctx context.Context, bucket, key string, limit int,
 }
 
 func (h *Handler) Resolve(w http.ResponseWriter, r *http.Request) {
-	user, _ := UserFromContext(r.Context())
-	httpx.WriteJSON(w, http.StatusOK, authn.Session{
-		Identity:  authn.Identity{UserID: user.ID, Role: string(user.Role)},
-		ExpiresAt: h.sessions.Deadline(r.Context()),
-	})
+	ctx := r.Context()
+	id := h.sessions.GetInt64(ctx, sessionUserIDKey)
+	if id == 0 {
+		httpx.NotLoggedIn(w)
+		return
+	}
+	session, err := h.service.store.session(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.NotLoggedIn(w)
+		return
+	}
+	if err != nil {
+		slog.ErrorContext(ctx, "resolve session user", "error", err)
+		httpx.InternalError(w)
+		return
+	}
+	session.ExpiresAt = h.sessions.Deadline(ctx)
+	httpx.WriteJSON(w, http.StatusOK, session)
 }
 
 // ClientIP uses a verified proxy address when TrustClientIP supplied one;

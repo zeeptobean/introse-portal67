@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/zeeptobean/introse-portal67/src/backend/internal/dbx"
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/platform/authn"
 )
 
 const userColumns = "id, email, institutional_id, full_name, date_of_birth, role, is_active, created_at"
@@ -20,6 +21,13 @@ type Store struct {
 
 func NewStore(db *pgxpool.Pool) *Store {
 	return &Store{db: db}
+}
+
+func (s *Store) session(ctx context.Context, id int64) (authn.Session, error) {
+	session := authn.Session{Identity: authn.Identity{UserID: id}}
+	err := s.db.QueryRow(ctx, "SELECT role, version FROM users WHERE id = $1 AND is_active", id).
+		Scan(&session.Role, &session.Version)
+	return session, err
 }
 
 // credentials is a user together with their password hash. It never leaves

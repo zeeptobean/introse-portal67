@@ -21,18 +21,14 @@ func NewIdentityHandler(pool *pgxpool.Pool, trusted []netip.Prefix, keys []ed255
 	handler.SharedLoginLimiter = limit
 	mux := http.NewServeMux()
 	server.HealthRoutes(mux, append([]func(context.Context) error{pool.Ping}, checks...)...)
-	mux.HandleFunc("POST /api/auth/login", handler.Login)
-	mux.Handle("POST /api/auth/logout", handler.RequireLogin(http.HandlerFunc(handler.Logout)))
-	mux.Handle("GET /api/me", handler.RequireLogin(http.HandlerFunc(handler.Me)))
-	mux.Handle("GET /api/staff/students", handler.RequireLogin(auth.RequireRole(auth.RoleStaff)(http.HandlerFunc(handler.ListStudents))))
-	resolve := handler.RequireLogin(http.HandlerFunc(handler.Resolve))
+	serviceRoutes{mux, handler.RequireLogin}.mountIdentity(handler)
 	mux.HandleFunc("POST /internal/sessions/resolve", func(w http.ResponseWriter, r *http.Request) {
 		identity, err := authn.Verify(keys, r.Header.Get(authn.IdentityHeader), routing.Identity)
 		if err != nil || identity.UserID != 0 || identity.Role != "gateway" {
 			httpx.PermissionDenied(w)
 			return
 		}
-		resolve.ServeHTTP(w, r)
+		handler.Resolve(w, r)
 	})
-	return auth.TrustClientIP(trusted, sessions.LoadAndSave(mux))
+	return auth.TrustClientIP(trusted, sessions.LoadAndSave(requestTrace(mux)))
 }

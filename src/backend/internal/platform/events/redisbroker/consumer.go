@@ -57,6 +57,9 @@ func (b *Broker) Read(ctx context.Context, stream, group, worker string) (events
 	if err != nil {
 		return events.Delivery{}, err
 	}
+	if len(streams) == 0 || len(streams[0].Messages) == 0 {
+		return events.Delivery{}, nil
+	}
 	return delivery(stream, streams[0].Messages[0], 1), nil
 }
 
