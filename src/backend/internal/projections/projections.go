@@ -168,7 +168,7 @@ func projectSection(ctx context.Context, tx pgx.Tx, row catalogRow, id int64, da
 	err := tx.QueryRow(ctx, `
 		INSERT INTO section_seats (section_id, capacity) VALUES ($1, $2)
 		ON CONFLICT (section_id) DO UPDATE SET
-			capacity = CASE WHEN excluded.capacity >= section_seats.active_count THEN excluded.capacity ELSE section_seats.capacity END,
+			capacity = greatest(excluded.capacity, section_seats.active_count),
 			pending_capacity = CASE WHEN excluded.capacity < section_seats.active_count THEN excluded.capacity END
 		RETURNING capacity`, id, value.Capacity).Scan(&effective)
 	if err != nil {
