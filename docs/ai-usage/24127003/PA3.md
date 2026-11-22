@@ -204,3 +204,51 @@
   - [x] Verified Go domain structs inherit `BaseModel` consistently.
   - [x] Commit reference / PR link: `docs(design): standardize base entity audit timestamps across all tables`
 
+---
+
+## Session Details — Synchronize the PA3 Insertion with CHG-10
+
+### Task: Apply the Latest Audit Timestamp and Base Model Changes
+* **Tool Used:** OpenAI Codex
+* **Date:** 2026-11-20
+* **Objective:** Read the user's latest changes and update `pa/PA3/PA3_Sequence_State_and_Data_Design.md` consistently.
+* **Input Prompt Summary:** Read the changes made and update the generated PA3 Markdown with those changes.
+* **Source Change:** Commit `7fc0ba1` — `docs(design): standardize base entity audit timestamps across all tables`, including CHG-10 and the recorded AGY audit-standardization session.
+* **AI Output Summary:**
+  - Added mandatory `created_at` and `updated_at` to all 46 table specifications and every ERD entity occurrence in [the PA3 insertion](../../../pa/PA3/PA3_Sequence_State_and_Data_Design.md).
+  - Replaced retired assigned/link/registration creation columns and updated dependency descriptions.
+  - Added shared audit/base model metadata to the class diagram and Go/TypeScript examples while retaining existing UUID, profile, lookup, and composite keys.
+  - Added the shared PostgreSQL update trigger and its attachment to tables in the four owner schemas, with immutable creation-time enforcement.
+  - Preserved distinct business-event timestamps, append-only history rules, and explicit aggregate version checks; documented re-registration and PostgreSQL transaction-timestamp semantics.
+* **Human Review & Modifications (Critical):**
+  - **Status:** The user authorized synchronization with the latest change; final content review and implementation validation remain pending.
+  - **Review focus:** Trigger attachment/defaults, any legacy timestamp backfill, history permissions, and retained business-event semantics during implementation.
+* **Verification Steps:**
+  - [x] All 12 Mermaid diagrams parsed successfully.
+  - [x] All 27 outer PostgreSQL statements parsed, covering two trigger/migration statements and 25 index statements; no database execution is claimed.
+  - [x] All 66 sequence calls match declared operations.
+  - [x] All 46 tables have both audit columns, all depicted ERD entities have audit metadata, and retired creation columns are absent from active table definitions.
+  - [x] FK targets, ERD endpoints, index columns, template headings, and source file links passed consistency checks.
+  - [x] `git diff --check` passed.
+  - [ ] Actual migration/trigger execution and runtime concurrency checks.
+  - [ ] Human approval and final PA3 integration.
+  - [ ] Commit / PR: not created in this session.
+
+---
+
+## Session Details — Vietnamese PA2 / PA3 Data Design Comparison
+
+* **Tool Used:** OpenAI Codex
+* **Date:** 2026-11-22
+* **Objective / Prompt Summary:** Read the Data Design chapter of `docs/requirements/T02-PA3.pdf`, compare it with the submitted `pa/PA2/T02-PA2.pdf`, and explain proposed corrections in Vietnamese with explicit links to PA2. The user selected a separate Markdown document to check against the official PA3.
+* **Sources Reviewed:** Both PDFs; PA2 functional/non-functional requirements, business rules, use-case specifications, acceptance criteria, RTM and review; PA3 Chapter 5 including visual inspection of its three ERDs, plus Chapters 7–8 and the existing Markdown design documents.
+* **AI Output Summary:** Created [PA3_Data_Design_PA2_Review_VI.md](../../../pa/PA3/PA3_Data_Design_PA2_Review_VI.md) with 13 findings, mappings for all 29 PA2 FRs and 20 BRs, proposed insertions for Sections 5.1–5.3, and suggested PA4 validation cases. Proposed completions address contact/advisor fields, faculty audience membership, cross-registration petitions, week ranges, pending grade corrections, and deferred exams; existing PA3 requirement changes are identified separately.
+* **Human Review & Modifications:** Proposed structures and scope choices require review against the official report. The review preserves PA2 Must/Should/Could priorities and marks new design proposals explicitly. Neither PDF nor the earlier PA3 insertion Markdown was modified in this session. No implementation, migration, runtime benchmark, commit or PR is claimed.
+* **Verification Steps:**
+  - [x] Verified the 29 numeric FR IDs and 20 BR IDs in the corresponding matrices, with unique ordered coverage.
+  - [x] Verified relative source links, UTF-8 content, closed code fences and consistent column counts in all 15 Markdown tables.
+  - [x] Parsed both Mermaid diagrams successfully.
+  - [x] Parsed all five proposed index statements with PostgreSQL syntax parsers; did not execute them against a database.
+  - [ ] Human review and integration into the official PA3.
+  - [ ] Database migrations, transaction/failure tests and measured performance after implementation.
+

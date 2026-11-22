@@ -1094,6 +1094,7 @@ erDiagram
     ACCOUNTS ||--o{ OAUTH_IDENTITIES : links
     ACCOUNTS ||--o| STUDENTS : identifies
     ACCOUNTS ||--o| LECTURERS : identifies
+    LECTURERS ||--o{ STUDENTS : advises
     
     ACADEMIC_PROGRAMS ||--o{ STUDENTS : categorizes
     ACADEMIC_PROGRAMS ||--o{ SEMESTERS : plans
@@ -1129,6 +1130,7 @@ erDiagram
         varchar program_code UK
         varchar program_name
         varchar program_type
+        uuid faculty_id FK
         smallint total_semesters_per_year
         varchar managing_unit
         timestamptz created_at
@@ -1188,21 +1190,19 @@ erDiagram
 
     STUDENTS {
         uuid id PK, FK
-        varchar mssv UK
-        varchar full_name
         uuid program_id FK
-        integer cohort_year
-        numeric cumulative_gpa
-        integer completed_credits
+        uuid advisor_id FK
+        smallint cohort_year
+        varchar academic_status
+        varchar contact_phone
+        text contact_address
         timestamptz created_at
         timestamptz updated_at
     }
 
     LECTURERS {
         uuid id PK, FK
-        varchar staff_code UK
-        varchar full_name
-        varchar department
+        uuid department_id FK
         timestamptz created_at
         timestamptz updated_at
     }
@@ -1247,6 +1247,8 @@ erDiagram
         smallint day_of_week
         smallint start_period
         smallint end_period
+        smallint start_week
+        smallint end_week
         timestamptz created_at
         timestamptz updated_at
     }
@@ -1399,8 +1401,40 @@ Stores distinct degree curriculum tracks, isolating Standard (Đại trà) from 
 | `program_type` | `VARCHAR(20)` | **No** | None | `CHECK (program_type IN ('STANDARD', 'PROJECT_BASED'))` | Track classification |
 | `total_semesters_per_year`| `SMALLINT` | **No** | `2` | `CHECK (total_semesters_per_year IN (2, 3))` | 2 for Standard, 3 for Trimester Đề án |
 | `managing_unit`| `VARCHAR(50)` | **No** | None | `CHECK (managing_unit IN ('PHONG_DAO_TAO', 'VP_DE_AN'))` | Responsible faculty administrative office |
+| `faculty_id` | `UUID` | **Yes** | `NULL` | **FK** $\rightarrow$ `academic.faculties(id)` | Governing faculty for targeted announcements (FR-29) |
 | `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Curriculum program creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last curriculum modification timestamp |
+
+---
+
+### Table: `academic.students`
+Stores student academic profile and program enrollment, sharing primary identity with `auth.accounts`.
+
+| Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| `id` | `UUID` | **No** | None | **PK**, **FK** $\rightarrow$ `auth.accounts(id)` ON DELETE CASCADE | Student profile identity |
+| `program_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.programs(id)` | Enrolled degree program |
+| `cohort_year` | `SMALLINT` | **No** | None | `CHECK (cohort_year BETWEEN 2000 AND 2100)` | Admission cohort year |
+| `academic_status`| `VARCHAR(20)` | **No** | `'ACTIVE'` | `CHECK (academic_status IN ('ACTIVE', 'SUSPENDED', 'GRADUATED', 'WITHDRAWN'))` | Administrative standing |
+| `advisor_id` | `UUID` | **Yes** | `NULL` | **FK** $\rightarrow$ `academic.lecturers(id)` ON DELETE SET NULL | Assigned academic advisor (FR-05) |
+| `contact_phone` | `VARCHAR(30)` | **Yes** | `NULL` | None | Personal phone number (self-updatable via UI-09) |
+| `contact_address`| `TEXT` | **Yes** | `NULL` | None | Personal contact address (self-updatable via UI-09) |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Student record creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last profile adjustment timestamp |
+
+*Business Rule:* Students are authorized to self-update `contact_phone` and `contact_address` only (BR-19, UI-09); academic standing, cohort, and program assignments are strictly staff-controlled.
+
+---
+
+### Table: `academic.lecturers`
+Stores academic faculty and teaching assistant (TA) profiles, sharing primary identity with `auth.accounts`.
+
+| Column | Data Type | Nullable | Default | Constraints & Foreign Keys | Description |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| `id` | `UUID` | **No** | None | **PK**, **FK** $\rightarrow$ `auth.accounts(id)` ON DELETE CASCADE | Lecturer profile identity |
+| `department_id` | `UUID` | **No** | None | **FK** $\rightarrow$ `academic.departments(id)` | Teaching department |
+| `created_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Faculty profile creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | **No** | `CURRENT_TIMESTAMP` | None | Last profile adjustment timestamp |
 
 ---
 
@@ -1488,6 +1522,8 @@ Stores granular weekly meeting sessions linked directly to physical classrooms, 
 | `day_of_week` | `SMALLINT`| **No** | None | `CHECK (day_of_week BETWEEN 2 AND 8)` | 2 = Mon, 8 = Sun |
 | `start_period` | `SMALLINT`| **No** | None | `CHECK (start_period BETWEEN 1 AND 12)` | HCMUS Period slot (1–12) |
 | `end_period` | `SMALLINT`| **No** | None | `CHECK (end_period >= start_period)` | Ending period slot |
+| `start_week`  | `SMALLINT`| **No** | `1`  | `CHECK (start_week > 0)` | Starting week number of session schedule (FR-13, UC-05) |
+| `end_week`    | `SMALLINT`| **No** | `16` | `CHECK (end_week >= start_week)` | Ending week number of session schedule |
 | `created_at`  | `TIMESTAMPTZ`| **No** | `CURRENT_TIMESTAMP` | None | Schedule slot creation timestamp |
 | `updated_at`  | `TIMESTAMPTZ`| **No** | `CURRENT_TIMESTAMP` | None | Last schedule timetable adjustment timestamp |
 
@@ -1628,9 +1664,13 @@ The data model has been formally normalized to eliminate update, insertion, and 
      - In `academic.exam_schedules`, each non-prime attribute depends solely on candidate keys $\{id\}$ or $\{classroom\_id, exam\_date, start\_time\}$. Physical room properties remain isolated in `academic.classrooms`.
      - In `academic.student_exams`, student exam allocations are normalized with non-prime attributes strictly dependent on $\{id\}$ or composite candidate key $\{exam\_schedule\_id, student\_id\}$. In accordance with university operations, student seating is organized dynamically by proctors based on sorted Student IDs (MSSV) on the exam day, eliminating the need for static pre-assigned seat numbers.
      - In `academic.exam_proctors`, multiple proctor assignments per exam room (e.g., CBCT 1, CBCT 2) are normalized as an $N:M$ relation where the determinant is the candidate key $\{exam\_schedule\_id, lecturer\_id\}$, completely eliminating multi-valued dependencies and satisfying strict BCNF.
-   - **Result:** Every determinant across all operational tables is a candidate key / superkey, establishing **100% BCNF compliance**.
-   - **Controlled Intentional Denormalization Justification:**
-     - The only non-3NF attribute retained is `sections.current_enrolled`. This integer counter caches active enrollment count directly on the section record to allow $O(1)$ seat quota validation and pessimistic row locking (`SELECT FOR UPDATE`) during registration spikes, eliminating database server starvation from recurrent `COUNT(*)` aggregations.
+   - **Result:** Every determinant across all operational tables is a candidate key / superkey, establishing **100% BCNF compliance**. *(Note: Surrogate UUID keys alone are not treated as proof of BCNF without functional dependency validation).*
+   - **Controlled Intentional Denormalizations and Snapshots:**
+     - `sections.current_enrolled` and Redis seat counters: Support constant-time seat availability validation and pessimistic row locking (`SELECT FOR UPDATE`) / atomic Lua seat reservation during registration spikes, eliminating database server starvation from recurrent `COUNT(*)` aggregations.
+     - GPA, earned-credit, and timetable projections: Accelerate high-frequency student dashboard reads (`UI-02`) without repeated heavy aggregate calculations.
+     - Outbox event payloads: Preserve event delivery context for asynchronous messaging via background workers.
+     - Request revisions and grade correction logs: Preserve immutable historical evidence via append-only semantics.
+     - Posted tuition line items: Preserve historical financial ledger snapshots under the policy active at billing time. Each denormalized view is reconciled against authoritative source tables or maintained as strictly append-only.
 
 ---
 
@@ -1669,6 +1709,21 @@ CREATE INDEX idx_exam_schedules_datetime_room ON academic.exam_schedules (exam_d
 -- Index 10: Proctor assignment retrieval for invigilating lecturers (FR-TT-03)
 CREATE INDEX idx_exam_proctors_lecturer ON academic.exam_proctors (lecturer_id, exam_schedule_id);
 ```
+
+### Proposed Query Index Mapping
+
+| Frequent Query / Use Case | Supporting Index / Existing Constraint | Expected Performance Benefit |
+| :--- | :--- | :--- |
+| **UC-01: Login by student/staff ID** | Existing `UNIQUE(identifier)`, `UNIQUE(email)` | Index unique scan on B-tree index, eliminating full table scans. |
+| **UC-02: Browse semester offerings** | `idx_sections_term_program` | Avoids sequential table scans; filters directly on active semester offerings. |
+| **UC-03: Timetable conflict check** | `idx_section_schedules_search` | Rapid interval check reducing overlap comparison from full scan to an index range scan. |
+| **UC-05: Student weekly timetable** | `idx_enrollments_student_active` | Index-driven join fetching only currently registered classes (`status = 'ACTIVE'`) without scanning dropped records. |
+| **UC-10 / UC-11: Process request queue**| `idx_requests_status_created` | Accelerated chronological retrieval of pending requests without sorting unindexed rows. |
+| **UC-14 / UC-15: Gradebook finalization** | `idx_student_grades_enrollment`, `idx_grade_sheets_submitted` | Fast aggregate calculation and immediate retrieval of submitted grade sheets. |
+| **UC-06 / UC-07: Tuition billing balance**| `idx_tuition_items_invoice`, `idx_payment_records_invoice_recorded` | Efficient summation of charges and non-void payments without table lockup. |
+| **UC-18: Notification badge & feed** | `idx_notifications_account_unread`, `idx_notifications_account_created` | Filtered partial index scan on unread notifications without scanning historical dismissed alerts. |
+
+> **Verification Protocol:** The performance efficiency of these proposed migration indexes will be empirically verified against realistic seeded test data using PostgreSQL `EXPLAIN (ANALYZE, BUFFERS)` and k6 load-testing scripts prior to production baseline sign-off.
 
 ---
 
@@ -1856,6 +1911,12 @@ The following design decisions record deliberate refinements between the initial
 10. **Refinement `CHG-10` — System-Wide Base Entity & Audit Timestamp Standardization:**
     - *PA3 Baseline:* Individual tables employed ad-hoc creation attributes (e.g. `assigned_at`, `registered_at`, `linked_at`) while catalog tables lacked temporal audit fields.
     - *PA3 Design Decision:* Standardized all database tables across `auth`, `academic`, `registration`, and `affairs` schemas with mandatory `created_at TIMESTAMPTZ` and `updated_at TIMESTAMPTZ` columns conforming to the Base Entity Pattern. Standardized PostgreSQL automatic trigger function (`trigger_set_timestamp`), Go domain structs (`BaseModel`), and ERD definitions, unlocking unified audit tracking, high-speed cursor-based pagination, and optimistic concurrency control.
+11. **Refinement `CHG-11` — Student Profile Enhancement & Academic Advisor Mapping (`FR-05`, `UI-09`):**
+    - *PA2 Baseline:* FR-05 required displaying student biographical data, academic track, cohort, advisor, and allowing personal contact updates.
+    - *PA3 Design Decision:* Enhanced `academic.students` with `advisor_id` (FK to `academic.lecturers`), `contact_phone`, and `contact_address`. Established explicit security boundaries: students are authorized to self-update contact fields via `UI-09`, while academic standing, cohort, and program assignments remain strictly administrator-controlled (`BR-19`).
+12. **Refinement `CHG-12` — Weekly Timetable Schedule Granularity (`FR-13`, `UC-05`):**
+    - *PA2 Baseline:* FR-13 and UC-05 specified weekly schedule filtering by semester, week number, and study day.
+    - *PA3 Design Decision:* Enriched `academic.section_schedules` with `start_week` and `end_week` attributes while maintaining the unified Theory-Practice model. This supports discrete calendar week slicing and eliminates false timetable conflict warnings between non-overlapping course modules.
 
 ---
 
