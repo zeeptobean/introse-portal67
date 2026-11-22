@@ -91,8 +91,12 @@ func (s *Service) Register(ctx context.Context, studentID, sectionID int64) (Enr
 
 		// A re-registration after a cancellation gets a new row; the cancelled
 		// one stays as history.
-		enrollmentID, err = s.store.insertEnrollment(ctx, tx, studentID, sectionID)
-		return err
+		state, err := s.store.insertEnrollment(ctx, tx, studentID, sectionID)
+		if err != nil {
+			return err
+		}
+		enrollmentID = state.ID
+		return state.appendEvent(ctx, tx, "registration.enrollment.created", state.RegisteredAt)
 	})
 	if err != nil {
 		return Enrollment{}, err
@@ -136,7 +140,11 @@ func (s *Service) Cancel(ctx context.Context, studentID, enrollmentID int64) (En
 		if graded {
 			return ErrAlreadyGraded
 		}
-		return s.store.cancelEnrollment(ctx, tx, enrollmentID)
+		state, err := s.store.cancelEnrollment(ctx, tx, enrollmentID)
+		if err != nil {
+			return err
+		}
+		return state.appendEvent(ctx, tx, "registration.enrollment.cancelled", *state.CancelledAt)
 	})
 	if err != nil {
 		return Enrollment{}, err

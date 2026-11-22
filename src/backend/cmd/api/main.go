@@ -14,6 +14,8 @@ import (
 
 	"github.com/zeeptobean/introse-portal67/src/backend/internal/app"
 	"github.com/zeeptobean/introse-portal67/src/backend/internal/config"
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/platform/events"
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/platform/events/redisbroker"
 )
 
 func main() {
@@ -36,9 +38,29 @@ func run(ctx context.Context) error {
 	}
 	defer pool.Close()
 
+	var pingRedis func(context.Context) error
+	if cfg.RedisURL != "" {
+		broker, err := redisbroker.Open(cfg.RedisURL, cfg.RedisKeyPrefix)
+		if err != nil {
+			return err
+		}
+		defer broker.Close()
+		pingRedis = broker.Ping
+		relayCtx, stopRelay := context.WithCancel(ctx)
+		relayDone := make(chan struct{})
+		go func() {
+			defer close(relayDone)
+			events.NewRelay(pool, broker).Run(relayCtx)
+		}()
+		defer func() {
+			stopRelay()
+			<-relayDone
+		}()
+	}
+
 	server := &http.Server{
 		Addr:              cfg.APIAddr,
-		Handler:           app.NewHandler(pool, cfg.TrustedProxyCIDRs),
+		Handler:           app.NewHandler(pool, cfg.TrustedProxyCIDRs, pingRedis),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,

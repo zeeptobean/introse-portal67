@@ -7,6 +7,7 @@ import (
 
 	"github.com/zeeptobean/introse-portal67/src/backend/internal/auth"
 	"github.com/zeeptobean/introse-portal67/src/backend/internal/httpx"
+	"github.com/zeeptobean/introse-portal67/src/backend/internal/platform/events"
 )
 
 // Handler exposes HTTP endpoints for course registration, scheduling, and academic results.
@@ -70,7 +71,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, _ := auth.UserFromContext(r.Context())
-	e, err := h.service.Register(r.Context(), u.ID, in.SectionID)
+	ctx := events.WithTraceID(r.Context(), r.Header.Get("X-Request-ID"))
+	e, err := h.service.Register(ctx, u.ID, in.SectionID)
 	if err != nil {
 		h.fail(w, r, "register", err)
 		return
@@ -84,7 +86,8 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, _ := auth.UserFromContext(r.Context())
-	e, err := h.service.Cancel(r.Context(), u.ID, id)
+	ctx := events.WithTraceID(r.Context(), r.Header.Get("X-Request-ID"))
+	e, err := h.service.Cancel(ctx, u.ID, id)
 	if err != nil {
 		h.fail(w, r, "cancel enrollment", err)
 		return

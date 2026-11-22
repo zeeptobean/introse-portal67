@@ -16,7 +16,7 @@ import (
 )
 
 // NewHandler wires shared dependencies, registers routes, and applies sessions.
-func NewHandler(pool *pgxpool.Pool, trustedProxies []netip.Prefix) http.Handler {
+func NewHandler(pool *pgxpool.Pool, trustedProxies []netip.Prefix, pingRedis func(context.Context) error) http.Handler {
 	sessions := newSessionManager(pool)
 	authStore := auth.NewStore(pool)
 	authService := auth.NewService(authStore)
@@ -42,6 +42,10 @@ func NewHandler(pool *pgxpool.Pool, trustedProxies []netip.Prefix) http.Handler 
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
 		if err := pool.Ping(ctx); err != nil {
+			httpx.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unavailable"})
+			return
+		}
+		if pingRedis != nil && pingRedis(ctx) != nil {
 			httpx.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unavailable"})
 			return
 		}

@@ -14,6 +14,8 @@ import (
 type Config struct {
 	APIAddr           string
 	DatabaseURL       string
+	RedisURL          string
+	RedisKeyPrefix    string
 	TrustedProxyCIDRs []netip.Prefix
 }
 
@@ -23,8 +25,10 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("load .env: %w", err)
 	}
 	cfg := Config{
-		APIAddr:     os.Getenv("API_ADDR"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
+		APIAddr:        os.Getenv("API_ADDR"),
+		DatabaseURL:    os.Getenv("DATABASE_URL"),
+		RedisURL:       os.Getenv("REDIS_URL"),
+		RedisKeyPrefix: strings.TrimSpace(os.Getenv("REDIS_KEY_PREFIX")),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL is required; copy .env.example to .env or set it in the environment")

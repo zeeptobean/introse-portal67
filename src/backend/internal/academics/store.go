@@ -262,14 +262,14 @@ func (s *Store) scheduleConflicts(ctx context.Context, tx pgx.Tx, studentID, sec
 	return conflicts, nil
 }
 
-func (s *Store) insertEnrollment(ctx context.Context, tx pgx.Tx, studentID, sectionID int64) (int64, error) {
-	var id int64
-	err := tx.QueryRow(ctx, "INSERT INTO enrollments (student_id, section_id) VALUES ($1, $2) RETURNING id",
-		studentID, sectionID).Scan(&id)
+func (s *Store) insertEnrollment(ctx context.Context, tx pgx.Tx, studentID, sectionID int64) (enrollmentState, error) {
+	state, err := readEnrollmentState(tx.QueryRow(ctx, `
+		INSERT INTO enrollments (student_id, section_id) VALUES ($1, $2)
+		RETURNING `+enrollmentStateColumns, studentID, sectionID))
 	if err != nil {
-		return 0, fmt.Errorf("insert enrollment: %w", err)
+		return enrollmentState{}, fmt.Errorf("insert enrollment: %w", err)
 	}
-	return id, nil
+	return state, nil
 }
 
 // enrollmentSection returns the section and status of the student's
@@ -292,12 +292,14 @@ func (s *Store) hasGrade(ctx context.Context, tx pgx.Tx, enrollmentID int64) (bo
 	return exists, nil
 }
 
-func (s *Store) cancelEnrollment(ctx context.Context, tx pgx.Tx, id int64) error {
-	_, err := tx.Exec(ctx, "UPDATE enrollments SET status = 'cancelled', cancelled_at = now() WHERE id = $1", id)
+func (s *Store) cancelEnrollment(ctx context.Context, tx pgx.Tx, id int64) (enrollmentState, error) {
+	state, err := readEnrollmentState(tx.QueryRow(ctx, `
+		UPDATE enrollments SET status = 'cancelled', cancelled_at = now(), version = version + 1
+		WHERE id = $1 RETURNING `+enrollmentStateColumns, id))
 	if err != nil {
-		return fmt.Errorf("cancel enrollment %d: %w", id, err)
+		return enrollmentState{}, fmt.Errorf("cancel enrollment %d: %w", id, err)
 	}
-	return nil
+	return state, nil
 }
 
 const enrollmentQuery = `
